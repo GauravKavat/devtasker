@@ -2,8 +2,8 @@
 
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "../ui/button";
-import { ButtonGroup } from "../ui/button-group";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import Image from "next/image";
@@ -23,7 +23,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white dark:bg-black">
+    <nav className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <a href="/" className="flex items-center gap-2">
           <Image

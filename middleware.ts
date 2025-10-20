@@ -1,5 +1,7 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
+// Don't redirect in middleware - let page-level auth handle it
+// This prevents timing issues between client and server auth state
 export default clerkMiddleware();
 
 export const config = {
