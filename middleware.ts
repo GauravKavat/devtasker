@@ -1,8 +1,16 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-// Don't redirect in middleware - let page-level auth handle it
-// This prevents timing issues between client and server auth state
-export default clerkMiddleware();
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/projects"]);
+
+export default clerkMiddleware(async (auth, req) => {
+  const { userId } = await auth();
+
+  if (isProtectedRoute(req) && !userId) {
+    const url = new URL("/unauthorized", req.url);
+    return NextResponse.redirect(url);
+  }
+});
 
 export const config = {
   matcher: [

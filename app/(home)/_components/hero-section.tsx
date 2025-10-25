@@ -28,7 +28,7 @@ export default function HeroSection() {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Now navigate to dashboard
-      router.push("/dashboard");
+      router.push("/projects");
     } catch (error) {
       console.error("Navigation error:", error);
       setIsNavigating(false);
