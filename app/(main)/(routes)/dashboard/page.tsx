@@ -17,14 +17,14 @@ import {
 } from "@/components/ui/sidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import Kanban from "@/app/(main)/(routes)/_components/kanban";
 import Calendar from "@/app/(main)/(routes)/_components/calender";
 import Github from "@/app/(main)/(routes)/_components/github";
 import Teams from "@/app/(main)/(routes)/_components/team";
 import Roles from "@/app/(main)/(routes)/_components/roles";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const searchParams = useSearchParams();
   const view = searchParams.get("view") || "dashboard";
   const { isSignedIn, isLoaded } = useUser();
@@ -127,5 +127,19 @@ export default function DashboardPage() {
         <div className="flex flex-1 flex-col gap-4 p-4">{getPageContent()}</div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
