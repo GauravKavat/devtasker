@@ -24,7 +24,9 @@ import Github from "@/app/(main)/(routes)/_components/github";
 import Teams from "@/app/(main)/(routes)/_components/team";
 import Roles from "@/app/(main)/(routes)/_components/roles";
 
-function DashboardContent() {
+import { Loader2 } from "lucide-react";
+
+function DashboardContentWithParams() {
   const searchParams = useSearchParams();
   const view = searchParams.get("view") || "dashboard";
   const { isSignedIn, isLoaded } = useUser();
@@ -39,7 +41,9 @@ function DashboardContent() {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     );
   }
@@ -97,49 +101,53 @@ function DashboardContent() {
   const breadcrumbInfo = getBreadcrumbInfo();
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard">
-                  {breadcrumbInfo.section}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              {view !== "dashboard" && (
-                <>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>{breadcrumbInfo.page}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">{getPageContent()}</div>
-      </SidebarInset>
-    </SidebarProvider>
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator
+          orientation="vertical"
+          className="mr-2 data-[orientation=vertical]:h-4"
+        />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem className="hidden md:block">
+              <BreadcrumbLink href="/dashboard">
+                {breadcrumbInfo.section}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {view !== "dashboard" && (
+              <>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{breadcrumbInfo.page}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4">{getPageContent()}</div>
+    </>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-muted-foreground">Loading...</div>
-        </div>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
+    <SidebarProvider>
+      <Suspense fallback={<div>Loading sidebar...</div>}>
+        <AppSidebar />
+      </Suspense>
+      <SidebarInset>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          <DashboardContentWithParams />
+        </Suspense>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
