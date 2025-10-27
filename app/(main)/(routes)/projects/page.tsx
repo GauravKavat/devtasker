@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useTransition } from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,11 +19,66 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
+import { SearchForm } from "@/components/search-form";
 import { UserNav } from "@/components/user-nav";
+import Gantt from "../_components/gantt";
+import { Loader2 } from "lucide-react";
 
-function ProjectsContent() {
+// Navigation data for projects sidebar
+const projectsNavData = [
+  {
+    title: "Project Views",
+    items: [
+      {
+        title: "Projects",
+        url: "/projects",
+        view: "projects",
+      },
+      {
+        title: "Gantt Chart",
+        url: "/projects?view=gantt",
+        view: "gantt",
+      },
+    ],
+  },
+];
+
+function ProjectsContentWithParams() {
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get("view") || "projects";
+
+  const getBreadcrumbInfo = () => {
+    switch (currentView) {
+      case "gantt":
+        return { section: "Projects", page: "Gantt Chart" };
+      default:
+        return { section: "Projects", page: "Overview" };
+    }
+  };
+
+  const breadcrumbInfo = getBreadcrumbInfo();
+
+  const renderContent = () => {
+    switch (currentView) {
+      case "gantt":
+        return <Gantt />;
+      default:
+        return (
+          <div className="flex flex-col w-full p-6">
+            <h1 className="text-3xl font-bold mb-4">Projects</h1>
+            <p className="text-muted-foreground">Manage your projects here.</p>
+          </div>
+        );
+    }
+  };
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -32,57 +89,91 @@ function ProjectsContent() {
         />
         <Breadcrumb>
           <BreadcrumbList>
+            <BreadcrumbItem className="hidden md:block">
+              {breadcrumbInfo.section}
+            </BreadcrumbItem>
             <BreadcrumbItem>
-              <BreadcrumbPage>Projects</BreadcrumbPage>
+              <BreadcrumbPage>{breadcrumbInfo.page}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <div className="flex flex-col w-full p-6" onClick={() => {}}>
-          <h1 className="text-3xl font-bold mb-4">Projects</h1>
-          <p className="text-muted-foreground">Manage your projects here.</p>
-        </div>
-      </div>
+      <div className="flex flex-1 flex-col gap-4 p-4">{renderContent()}</div>
     </>
   );
 }
 
-export default function ProjectsPage() {
+function ProjectsSidebar() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get("view") || "projects";
 
   return (
+    <Sidebar>
+      <SidebarHeader>
+        <div
+          className="flex items-center justify-center gap-x-4 p-2 border-b border-muted cursor-pointer"
+          onClick={() => {
+            router.push("/");
+          }}
+        >
+          <Image
+            src="/devtasker.svg"
+            alt="DevTasker Logo"
+            width={28}
+            height={28}
+            className="dark:invert"
+          />
+          <h1 className="flex items-baseline text-3xl font-semibold mt-1">
+            DevTasker
+          </h1>
+        </div>
+        <SearchForm />
+      </SidebarHeader>
+      <SidebarContent>
+        {projectsNavData.map((section) => (
+          <SidebarGroup key={section.title}>
+            <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={currentView === item.view}
+                    >
+                      <Link href={item.url}>{item.title}</Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+      <SidebarFooter>
+        <UserNav />
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
     <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div
-            className="flex items-center justify-center gap-x-4 p-2 border-b border-muted cursor-pointer"
-            onClick={() => {
-              // redirect to home when click on this <div>
-              router.push("/");
-            }}
-          >
-            <Image
-              src="/devtasker.svg"
-              alt="DevTasker Logo"
-              width={28}
-              height={28}
-              className="dark:invert"
-            />
-            <h1 className="flex items-baseline text-3xl font-semibold mt-1">
-              DevTasker
-            </h1>
-          </div>
-        </SidebarHeader>
-        <SidebarContent>
-          {/* Add your custom sidebar content here */}
-        </SidebarContent>
-        <SidebarFooter>
-          <UserNav />
-        </SidebarFooter>
-      </Sidebar>
+      <Suspense fallback={<div>Loading sidebar...</div>}>
+        <ProjectsSidebar />
+      </Suspense>
       <SidebarInset>
-        <ProjectsContent />
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          <ProjectsContentWithParams />
+        </Suspense>
       </SidebarInset>
     </SidebarProvider>
   );

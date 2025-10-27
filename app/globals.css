@@ -227,7 +227,10 @@
     backdrop-filter: blur(5px) !important;
 }
 
-/* Replace .cl-internal-1ab2cd with the class you found */
 .cl-internal-pe6vm4 {
+    display: none !important;
+}
+
+.cl-internal-15hkgn2 {
     display: none !important;
 }

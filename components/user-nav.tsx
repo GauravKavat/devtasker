@@ -11,16 +11,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Settings, User, ChevronRight, Moon, Sun } from "lucide-react";
+import { LogOut, Settings, User, Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 
 export function UserNav() {
   const { user } = useUser();
   const { signOut, openUserProfile } = useClerk();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -95,8 +100,14 @@ export function UserNav() {
         onClick={toggleTheme}
         className="h-8 w-8 shrink-0 flex items-center justify-center"
       >
-        <Sun className="h-4 w-4 dark:hidden" />
-        <Moon className="h-4 w-4 hidden dark:block" />
+        {mounted ? (
+          <>
+            <Sun className="h-4 w-4 dark:hidden" />
+            <Moon className="h-4 w-4 hidden dark:block" />
+          </>
+        ) : (
+          <div className="h-4 w-4" />
+        )}
       </button>
     </div>
   );
