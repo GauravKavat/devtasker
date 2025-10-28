@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { SearchForm } from "@/components/search-form";
-import { VersionSwitcher } from "@/components/version-switcher";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { UserNav } from "@/components/user-nav";
 import {
   Sidebar,
@@ -20,77 +20,80 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-// DevTasker navigation data
-const data = {
-  versions: ["1.0.1", "1.1.0-alpha", "2.0.0-beta1"],
-  navMain: [
-    {
-      title: "Project Management",
-      url: "/dashboard",
-      items: [
-        {
-          title: "Dashboard",
-          url: "/dashboard",
-          view: "dashboard",
-        },
-        {
-          title: "Kanban Board",
-          url: "/dashboard?view=kanban",
-          view: "kanban",
-        },
-        {
-          title: "Calendar",
-          url: "/dashboard?view=calendar",
-          view: "calendar",
-        },
-      ],
-    },
-    {
-      title: "Team & Collaboration",
-      url: "/dashboard?view=team",
-      items: [
-        {
-          title: "Team Members",
-          url: "/dashboard?view=team",
-          view: "team",
-        },
-        {
-          title: "Roles & Permissions",
-          url: "/dashboard?view=roles",
-          view: "roles",
-        },
-      ],
-    },
-    {
-      title: "Integration",
-      url: "/dashboard?view=github",
-      items: [
-        {
-          title: "GitHub",
-          url: "/dashboard?view=github",
-          view: "github",
-        },
-      ],
-    },
-  ],
-};
+// Generate navigation data based on base URL
+const getNavData = (baseUrl: string) => [
+  {
+    title: "Project Management",
+    url: baseUrl,
+    items: [
+      {
+        title: "Dashboard",
+        url: baseUrl,
+        view: "dashboard",
+      },
+      {
+        title: "Kanban Board",
+        url: `${baseUrl}?view=kanban`,
+        view: "kanban",
+      },
+      {
+        title: "Calendar",
+        url: `${baseUrl}?view=calendar`,
+        view: "calendar",
+      },
+    ],
+  },
+  {
+    title: "Team & Collaboration",
+    url: `${baseUrl}?view=team`,
+    items: [
+      {
+        title: "Team Members",
+        url: `${baseUrl}?view=team`,
+        view: "team",
+      },
+      {
+        title: "Roles & Permissions",
+        url: `${baseUrl}?view=roles`,
+        view: "roles",
+      },
+    ],
+  },
+  {
+    title: "Integration",
+    url: `${baseUrl}?view=github`,
+    items: [
+      {
+        title: "GitHub",
+        url: `${baseUrl}?view=github`,
+        view: "github",
+      },
+    ],
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const currentView = searchParams.get("view") || "dashboard";
+
+  // Determine base URL based on current path
+  // If we're in a project page, use that path; otherwise use /projects
+  const baseUrl = pathname?.startsWith("/projects/")
+    ? pathname.split("?")[0]
+    : "/projects";
+
+  const navMain = getNavData(baseUrl);
 
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <VersionSwitcher
-          versions={data.versions}
-          defaultVersion={data.versions[0]}
-        />
+        <ProjectSwitcher />
         <SearchForm />
       </SidebarHeader>
       <SidebarContent>
         {/* We create a SidebarGroup for each parent. */}
-        {data.navMain.map((item) => (
+        {navMain.map((item) => (
           <SidebarGroup key={item.title}>
             <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
             <SidebarGroupContent>

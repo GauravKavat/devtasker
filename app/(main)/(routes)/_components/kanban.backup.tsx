@@ -106,11 +106,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-interface KanbanProps {
-  projectId?: string;
-}
-
-export default function Kanban({ projectId }: KanbanProps) {
+export default function Kanban() {
   const [features, setFeatures] = useState<Feature[]>(initialFeatures);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<string>("");
@@ -156,13 +152,6 @@ export default function Kanban({ projectId }: KanbanProps) {
 
   return (
     <>
-      {projectId && (
-        <div className="mb-4">
-          <p className="text-sm text-muted-foreground">
-            Viewing Kanban board for project: {projectId}
-          </p>
-        </div>
-      )}
       <KanbanProvider
         columns={columns}
         data={features}

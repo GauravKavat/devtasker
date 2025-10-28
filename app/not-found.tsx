@@ -28,7 +28,8 @@ export default function NotFound() {
           </p>
 
           <p className="text-base text-gray-500 dark:text-gray-500 mb-8">
-            It might have been moved or deleted, or you may have mistyped the URL.
+            It might have been moved or deleted, or you may have mistyped the
+            URL.
           </p>
 
           <div className="flex flex-col gap-4">
@@ -38,9 +39,9 @@ export default function NotFound() {
               </Button>
             </Link>
 
-            <Link href="/dashboard">
+            <Link href="/projects">
               <Button variant="outline" className="w-full rounded-xl" size="lg">
-                Go to Dashboard
+                Go to Projects
               </Button>
             </Link>
           </div>

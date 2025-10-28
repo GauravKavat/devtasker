@@ -29,6 +29,7 @@ import {
 import { SearchForm } from "@/components/search-form";
 import { UserNav } from "@/components/user-nav";
 import Gantt from "../_components/gantt";
+import Projects from "../_components/projects";
 import { Loader2 } from "lucide-react";
 
 // Navigation data for projects sidebar
@@ -70,12 +71,7 @@ function ProjectsContentWithParams() {
       case "gantt":
         return <Gantt />;
       default:
-        return (
-          <div className="flex flex-col w-full p-6">
-            <h1 className="text-3xl font-bold mb-4">Projects</h1>
-            <p className="text-muted-foreground">Manage your projects here.</p>
-          </div>
-        );
+        return <Projects />;
     }
   };
 
