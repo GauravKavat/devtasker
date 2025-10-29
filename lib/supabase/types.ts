@@ -1,6 +1,127 @@
 export type Database = {
   public: {
     Tables: {
+      project_repos: {
+        Row: {
+          id: string;
+          project_id: string;
+          repo_url: string;
+          repo_owner: string;
+          repo_name: string;
+          default_branch: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          repo_url: string;
+          repo_owner: string;
+          repo_name: string;
+          default_branch?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          repo_url?: string;
+          repo_owner?: string;
+          repo_name?: string;
+          default_branch?: string | null;
+        };
+      };
+      task_github_links: {
+        Row: {
+          id: string;
+          task_id: string;
+          link_type: "issue" | "pr" | "commit";
+          github_id: string;
+          github_number: number | null;
+          github_url: string;
+          status: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          link_type: "issue" | "pr" | "commit";
+          github_id: string;
+          github_number?: number | null;
+          github_url: string;
+          status?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          link_type?: "issue" | "pr" | "commit";
+          github_id?: string;
+          github_number?: number | null;
+          github_url?: string;
+          status?: string | null;
+          updated_at?: string;
+        };
+      };
+      github_commits: {
+        Row: {
+          id: string;
+          task_id: string;
+          commit_sha: string;
+          commit_message: string;
+          commit_url: string;
+          author: string;
+          committed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          commit_sha: string;
+          commit_message: string;
+          commit_url: string;
+          author: string;
+          committed_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          commit_sha?: string;
+          commit_message?: string;
+          commit_url?: string;
+          author?: string;
+          committed_at?: string;
+        };
+      };
+      github_webhooks: {
+        Row: {
+          id: string;
+          project_id: string;
+          webhook_id: string;
+          webhook_url: string;
+          secret: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          webhook_id: string;
+          webhook_url: string;
+          secret: string;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          webhook_id?: string;
+          webhook_url?: string;
+          secret?: string;
+          active?: boolean;
+        };
+      };
       users: {
         Row: {
           id: string;
@@ -122,6 +243,13 @@ export type User = Database["public"]["Tables"]["users"]["Row"];
 export type Project = Database["public"]["Tables"]["projects"]["Row"];
 export type Column = Database["public"]["Tables"]["columns"]["Row"];
 export type Task = Database["public"]["Tables"]["tasks"]["Row"];
+export type ProjectRepo = Database["public"]["Tables"]["project_repos"]["Row"];
+export type TaskGitHubLink =
+  Database["public"]["Tables"]["task_github_links"]["Row"];
+export type GitHubCommit =
+  Database["public"]["Tables"]["github_commits"]["Row"];
+export type GitHubWebhook =
+  Database["public"]["Tables"]["github_webhooks"]["Row"];
 
 export type TaskWithAssignee = Task & {
   assignee: User | null;
@@ -129,4 +257,13 @@ export type TaskWithAssignee = Task & {
 
 export type ColumnWithTasks = Column & {
   tasks: TaskWithAssignee[];
+};
+
+export type TaskWithGitHub = TaskWithAssignee & {
+  github_links?: TaskGitHubLink[];
+  github_commits?: GitHubCommit[];
+};
+
+export type ProjectWithRepos = Project & {
+  repos?: ProjectRepo[];
 };

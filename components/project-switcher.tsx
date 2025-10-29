@@ -24,6 +24,11 @@ export function ProjectSwitcher() {
   const params = useParams();
   const { projects, loading } = useProjects();
   const projectSlug = params.projectSlug as string | undefined;
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const currentProject = React.useMemo(() => {
     if (!projectSlug || !projects.length) return null;
@@ -49,14 +54,16 @@ export function ProjectSwitcher() {
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold">
-                  {loading
+                  {!mounted || loading
                     ? "Loading..."
                     : currentProject
                       ? currentProject.name
                       : "Select Project"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {currentProject ? "Project Dashboard" : "No project selected"}
+                  {mounted && currentProject
+                    ? "Project Dashboard"
+                    : "No project selected"}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />

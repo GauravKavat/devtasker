@@ -36,6 +36,8 @@ export interface GitHubRelease {
     login: string;
     avatar_url: string;
   };
+  prerelease: boolean;
+  draft: boolean;
 }
 
 export interface GitHubPullRequest {
@@ -53,6 +55,17 @@ export interface GitHubPullRequest {
   mergeable_state?: string;
   merged: boolean;
   merge_commit_sha: string | null;
+  head: {
+    ref: string;
+    sha: string;
+  };
+  base: {
+    ref: string;
+    sha: string;
+  };
+  body?: string;
+  merged_at?: string;
+  closed_at?: string;
 }
 
 export interface GitHubRepoInfo {

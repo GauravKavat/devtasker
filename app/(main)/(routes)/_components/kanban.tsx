@@ -25,6 +25,8 @@ import { Plus, CalendarIcon, Loader2, Trash2 } from "lucide-react";
 
 import { useKanban, useCreateTask, useDeleteTask } from "@/hooks/use-kanban";
 import { useProjects } from "@/hooks/use-projects";
+import { TaskGitHubLinks, ImportIssuesDialog } from "@/components/github";
+import { useProjectRepos } from "@/hooks/use-github";
 
 import { format } from "date-fns";
 
@@ -74,6 +76,7 @@ interface KanbanProps {
 export default function Kanban({ projectId }: KanbanProps) {
   const { columns: dbColumns, loading, error } = useKanban(projectId || "");
   const { projects, loading: projectsLoading } = useProjects();
+  const { data: repos } = useProjectRepos(projectId);
   const createTask = useCreateTask();
   const deleteTask = useDeleteTask();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -219,12 +222,22 @@ export default function Kanban({ projectId }: KanbanProps) {
         {(column) => (
           <KanbanBoard id={column.id} key={column.id}>
             <KanbanHeader>
-              <div className="flex items-center gap-2">
-                <div
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: column.color }}
-                />
-                <span>{column.name}</span>
+              <div className="flex items-center justify-between gap-2 w-full">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: column.color }}
+                  />
+                  <span>{column.name}</span>
+                </div>
+                {projectId && repos && repos.length > 0 && (
+                  <ImportIssuesDialog
+                    projectId={projectId}
+                    columnId={column.id}
+                    repoOwner={repos[0].repo_owner}
+                    repoName={repos[0].repo_name}
+                  />
+                )}
               </div>
             </KanbanHeader>
             <KanbanCards id={column.id}>
@@ -243,6 +256,7 @@ export default function Kanban({ projectId }: KanbanProps) {
                           {feature.description}
                         </p>
                       )}
+                      <TaskGitHubLinks taskId={feature.id} compact />
                     </div>
                     <div className="flex items-center gap-1 shrink-0 relative z-50">
                       {feature.owner && (

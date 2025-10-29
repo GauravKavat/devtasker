@@ -1,6 +1,8 @@
 "use client";
 
 import { useProjects } from "@/hooks/use-projects";
+import { ProjectRepos, GitHubActionsStatus } from "@/components/github";
+import { useProjectRepos } from "@/hooks/use-github";
 import {
   Loader2,
   GitBranch,
@@ -44,6 +46,8 @@ interface GithubProps {
 export default function Github({ projectId }: GithubProps) {
   const { projects, loading } = useProjects();
   const project = projects.find((p) => p.id === projectId);
+  const { data: repos } = useProjectRepos(projectId);
+  const [selectedRepo, setSelectedRepo] = useState("");
 
   const [repoUrl, setRepoUrl] = useState("");
   const [fetchedRepoUrl, setFetchedRepoUrl] = useState("");
@@ -128,10 +132,12 @@ export default function Github({ projectId }: GithubProps) {
       ["dirty", "unstable", "blocked"].includes(pr.mergeable_state),
   );
 
+  const selectedRepoData = repos?.find((r) => r.id === selectedRepo);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold">GitHub VCS Information</h1>
+        <h1 className="text-3xl font-bold">GitHub Integration</h1>
         {projectId && (
           <p className="text-muted-foreground mt-2">
             {loading ? (
@@ -140,13 +146,48 @@ export default function Github({ projectId }: GithubProps) {
                 Loading project...
               </span>
             ) : project ? (
-              <>Viewing GitHub activity for project: {project.name}</>
+              <>Manage GitHub repositories for: {project.name}</>
             ) : (
-              <>Viewing GitHub activity for project: {projectId}</>
+              <>Manage GitHub repositories for project: {projectId}</>
             )}
           </p>
         )}
       </div>
+
+      {projectId && (
+        <div className="space-y-6">
+          <ProjectRepos projectId={projectId} />
+
+          {repos && repos.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium">
+                  Select Repository for CI/CD Status:
+                </label>
+                <select
+                  value={selectedRepo}
+                  onChange={(e) => setSelectedRepo(e.target.value)}
+                  className="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <option value="">Choose a repository...</option>
+                  {repos.map((repo) => (
+                    <option key={repo.id} value={repo.id}>
+                      {repo.repo_owner}/{repo.repo_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedRepoData && (
+                <GitHubActionsStatus
+                  repoOwner={selectedRepoData.repo_owner}
+                  repoName={selectedRepoData.repo_name}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
