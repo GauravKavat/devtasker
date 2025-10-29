@@ -71,7 +71,7 @@ export function useProjects() {
         { event: "*", schema: "public", table: "projects" },
         async () => {
           await queryClient.refetchQueries({ queryKey: ["projects", user.id] });
-        }
+        },
       )
       .subscribe();
 
@@ -84,7 +84,8 @@ export function useProjects() {
     projects,
     loading,
     error: error as Error | null,
-    refetch: async () => await queryClient.refetchQueries({ queryKey: ["projects", user?.id] }),
+    refetch: async () =>
+      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] }),
   };
 }
 
@@ -96,9 +97,13 @@ export function useCreateProject() {
     mutationFn: async ({
       name,
       description,
+      start_date,
+      deadline,
     }: {
       name: string;
       description?: string;
+      start_date?: string;
+      deadline: string;
     }) => {
       if (!user) throw new Error("User not authenticated");
 
@@ -112,6 +117,8 @@ export function useCreateProject() {
         .insert({
           name,
           description: description || null,
+          start_date: start_date || null,
+          deadline,
           owner_id: (dbUser as any).id,
         } as any)
         .select()
@@ -131,7 +138,7 @@ export function useCreateProject() {
         defaultColumns.map((col) => ({
           ...col,
           project_id: (data as any).id,
-        })) as any
+        })) as any,
       );
 
       return data as Project;
@@ -141,12 +148,23 @@ export function useCreateProject() {
     },
   });
 
-  return useCallback(async (name: string, description?: string) => {
-    const result = await mutation.mutateAsync({ name, description });
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-    return result;
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    async (
+      name: string,
+      description?: string,
+      start_date?: string,
+      deadline?: string,
+    ) => {
+      const result = await mutation.mutateAsync({
+        name,
+        description,
+        start_date,
+        deadline: deadline!,
+      });
+      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+      return result;
+    },
+    [mutation, queryClient, user?.id],
   );
 }
 
@@ -169,11 +187,12 @@ export function useDeleteProject() {
     },
   });
 
-  return useCallback(async (projectId: string) => {
-    await mutation.mutateAsync(projectId);
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    async (projectId: string) => {
+      await mutation.mutateAsync(projectId);
+      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+    },
+    [mutation, queryClient, user?.id],
   );
 }
 
@@ -187,7 +206,12 @@ export function useUpdateProject() {
       updates,
     }: {
       projectId: string;
-      updates: { name?: string; description?: string };
+      updates: {
+        name?: string;
+        description?: string;
+        start_date?: string;
+        deadline?: string;
+      };
     }) => {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
@@ -206,11 +230,20 @@ export function useUpdateProject() {
     },
   });
 
-  return useCallback(async (projectId: string, updates: { name?: string; description?: string }) => {
-    const result = await mutation.mutateAsync({ projectId, updates });
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-    return result;
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    async (
+      projectId: string,
+      updates: {
+        name?: string;
+        description?: string;
+        start_date?: string;
+        deadline?: string;
+      },
+    ) => {
+      const result = await mutation.mutateAsync({ projectId, updates });
+      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+      return result;
+    },
+    [mutation, queryClient, user?.id],
   );
 }

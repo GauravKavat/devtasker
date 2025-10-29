@@ -37,7 +37,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Loader2, Trash2, FolderKanban, Pen } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Trash2,
+  FolderKanban,
+  Pen,
+  Calendar,
+} from "lucide-react";
 import { createSlug } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -57,10 +64,14 @@ export default function Projects() {
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
+    start_date: "",
+    deadline: "",
   });
   const [editProject, setEditProject] = useState({
     name: "",
     description: "",
+    start_date: "",
+    deadline: "",
   });
 
   const handleCreateProject = async () => {
@@ -69,11 +80,30 @@ export default function Projects() {
       return;
     }
 
+    if (!newProject.deadline.trim()) {
+      alert("Please enter a project deadline");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await createProject(newProject.name, newProject.description);
+      const startDate = newProject.start_date.trim()
+        ? newProject.start_date
+        : new Date().toISOString().split("T")[0];
+
+      await createProject(
+        newProject.name,
+        newProject.description,
+        startDate,
+        newProject.deadline,
+      );
       setIsCreateDialogOpen(false);
-      setNewProject({ name: "", description: "" });
+      setNewProject({
+        name: "",
+        description: "",
+        start_date: "",
+        deadline: "",
+      });
     } catch (err) {
       console.error("Failed to create project:", err, JSON.stringify(err));
       alert(
@@ -94,13 +124,24 @@ export default function Projects() {
 
     setIsSubmitting(true);
     try {
+      const startDate = editProject.start_date.trim()
+        ? editProject.start_date
+        : projectToEdit.start_date || new Date().toISOString().split("T")[0];
+
       await updateProject(projectToEdit.id, {
         name: editProject.name,
         description: editProject.description,
+        start_date: startDate,
+        deadline: editProject.deadline,
       });
       setIsEditDialogOpen(false);
       setProjectToEdit(null);
-      setEditProject({ name: "", description: "" });
+      setEditProject({
+        name: "",
+        description: "",
+        start_date: "",
+        deadline: "",
+      });
     } catch (err) {
       console.error("Failed to update project:", err);
       alert("Failed to update project");
@@ -180,7 +221,9 @@ export default function Projects() {
             <Card
               key={project.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => router.push(`/projects/${createSlug(project.name)}`)}
+              onClick={() =>
+                router.push(`/projects/${createSlug(project.name)}`)
+              }
             >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -196,6 +239,8 @@ export default function Projects() {
                         setEditProject({
                           name: project.name,
                           description: project.description || "",
+                          start_date: project.start_date || "",
+                          deadline: project.deadline || "",
                         });
                         setIsEditDialogOpen(true);
                       }}
@@ -222,6 +267,17 @@ export default function Projects() {
                   </CardDescription>
                 )}
               </CardHeader>
+              <CardContent className="pb-2">
+                {project.deadline && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      Deadline:{" "}
+                      {format(new Date(project.deadline), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
               <CardFooter className="text-xs text-muted-foreground">
                 Created {format(new Date(project.created_at), "MMM d, yyyy")}
               </CardFooter>
@@ -263,6 +319,34 @@ export default function Projects() {
                   setNewProject({ ...newProject, description: e.target.value })
                 }
                 placeholder="Enter project description (optional)"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="start-date">Start Date</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={newProject.start_date}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, start_date: e.target.value })
+                }
+                placeholder="Start date (defaults to today)"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="deadline">
+                Deadline <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="deadline"
+                type="date"
+                value={newProject.deadline}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, deadline: e.target.value })
+                }
+                placeholder="Enter project deadline"
                 disabled={isSubmitting}
               />
             </div>
@@ -323,6 +407,38 @@ export default function Projects() {
                   })
                 }
                 placeholder="Enter project description (optional)"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-start-date">Start Date</Label>
+              <Input
+                id="edit-start-date"
+                type="date"
+                value={editProject.start_date}
+                onChange={(e) =>
+                  setEditProject({
+                    ...editProject,
+                    start_date: e.target.value,
+                  })
+                }
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-deadline">
+                Deadline <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="edit-deadline"
+                type="date"
+                value={editProject.deadline}
+                onChange={(e) =>
+                  setEditProject({
+                    ...editProject,
+                    deadline: e.target.value,
+                  })
+                }
                 disabled={isSubmitting}
               />
             </div>

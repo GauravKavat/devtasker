@@ -27,6 +27,8 @@ export type Database = {
           name: string;
           description: string | null;
           owner_id: string;
+          start_date: string | null;
+          deadline: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -35,6 +37,8 @@ export type Database = {
           name: string;
           description?: string | null;
           owner_id: string;
+          start_date?: string | null;
+          deadline?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -43,6 +47,8 @@ export type Database = {
           name?: string;
           description?: string | null;
           owner_id?: string;
+          start_date?: string | null;
+          deadline?: string | null;
           updated_at?: string;
         };
       };
