@@ -57,7 +57,7 @@ export function useProjects() {
     queryKey: ["projects", user?.id],
     queryFn: () => fetchProjects(user!.id),
     enabled: !!user?.id,
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 
   useEffect(() => {
@@ -69,8 +69,8 @@ export function useProjects() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "projects" },
-        async () => {
-          await queryClient.refetchQueries({ queryKey: ["projects", user.id] });
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["projects", user.id] });
         }
       )
       .subscribe();
@@ -84,7 +84,8 @@ export function useProjects() {
     projects,
     loading,
     error: error as Error | null,
-    refetch: async () => await queryClient.refetchQueries({ queryKey: ["projects", user?.id] }),
+    refetch: () =>
+      queryClient.invalidateQueries({ queryKey: ["projects", user?.id] }),
   };
 }
 
@@ -136,17 +137,15 @@ export function useCreateProject() {
 
       return data as Project;
     },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects", user?.id] });
     },
   });
 
-  return useCallback(async (name: string, description?: string) => {
-    const result = await mutation.mutateAsync({ name, description });
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-    return result;
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    (name: string, description?: string) =>
+      mutation.mutateAsync({ name, description }),
+    [mutation]
   );
 }
 
@@ -164,16 +163,14 @@ export function useDeleteProject() {
 
       if (error) throw error;
     },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects", user?.id] });
     },
   });
 
-  return useCallback(async (projectId: string) => {
-    await mutation.mutateAsync(projectId);
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    (projectId: string) => mutation.mutateAsync(projectId),
+    [mutation]
   );
 }
 
@@ -201,16 +198,14 @@ export function useUpdateProject() {
       if (error) throw error;
       return data as Project;
     },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects", user?.id] });
     },
   });
 
-  return useCallback(async (projectId: string, updates: { name?: string; description?: string }) => {
-    const result = await mutation.mutateAsync({ projectId, updates });
-    await queryClient.refetchQueries({ queryKey: ["projects", user?.id] });
-    return result;
-  },
-    [mutation, queryClient, user?.id]
+  return useCallback(
+    (projectId: string, updates: { name?: string; description?: string }) =>
+      mutation.mutateAsync({ projectId, updates }),
+    [mutation]
   );
 }

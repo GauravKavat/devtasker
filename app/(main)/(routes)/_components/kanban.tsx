@@ -21,79 +21,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, CalendarIcon } from "lucide-react";
+import { Plus, CalendarIcon, Loader2, Trash2 } from "lucide-react";
+
+import { useKanban, useCreateTask, useDeleteTask } from "@/hooks/use-kanban";
+import { useProjects } from "@/hooks/use-projects";
+
 import { format } from "date-fns";
 
-type BackgroundColor = string;
+// type BackgroundColor = string;
 
-type Column = {
-  id: string;
-  name: string;
-  color?: BackgroundColor;
-};
+// type Column = {
+//   id: string;
+//   name: string;
+//   color?: BackgroundColor;
+// };
 
-type Feature = {
-  id: string;
-  name: string;
-  column: string;
-  description?: string;
-  startAt: Date;
-  endAt: Date;
-  owner?: {
-    name: string;
-    image: string;
-  };
-};
+// type Feature = {
+//   id: string;
+//   name: string;
+//   column: string;
+//   description?: string;
+//   startAt: Date;
+//   endAt: Date;
+//   owner?: {
+//     name: string;
+//     image: string;
+//   };
+// };
 
-const columns: Column[] = [
-  { id: "backlog", name: "Backlog", color: "#94a3b8" },
-  { id: "todo", name: "To Do", color: "#60a5fa" },
-  { id: "in-progress", name: "In Progress", color: "#fbbf24" },
-  { id: "done", name: "Done", color: "#34d399" },
-];
-
-const initialFeatures: Feature[] = [
-  {
-    id: "1",
-    name: "User Authentication",
-    column: "backlog",
-    startAt: new Date(2024, 0, 15),
-    endAt: new Date(2024, 0, 30),
-    owner: {
-      name: "John Doe",
-      image: "https://github.com/shadcn.png",
-    },
-  },
-  {
-    id: "2",
-    name: "Dashboard UI",
-    column: "todo",
-    startAt: new Date(2024, 1, 1),
-    endAt: new Date(2024, 1, 15),
-    owner: {
-      name: "Jane Smith",
-      image: "https://github.com/vercel.png",
-    },
-  },
-  {
-    id: "3",
-    name: "API Integration",
-    column: "in-progress",
-    startAt: new Date(2024, 1, 5),
-    endAt: new Date(2024, 1, 20),
-  },
-  {
-    id: "4",
-    name: "Testing Suite",
-    column: "done",
-    startAt: new Date(2024, 0, 1),
-    endAt: new Date(2024, 0, 14),
-    owner: {
-      name: "Bob Johnson",
-      image: "https://github.com/github.png",
-    },
-  },
-];
+// const columns: Column[] = [
+//   { id: "backlog", name: "Backlog", color: "#94a3b8" },
+//   { id: "todo", name: "To Do", color: "#60a5fa" },
+//   { id: "in-progress", name: "In Progress", color: "#fbbf24" },
+//   { id: "done", name: "Done", color: "#34d399" },
+// ];
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -111,7 +72,13 @@ interface KanbanProps {
 }
 
 export default function Kanban({ projectId }: KanbanProps) {
-  const [features, setFeatures] = useState<Feature[]>(initialFeatures);
+  const { columns: dbColumns, loading, error } = useKanban(projectId || "");
+  const { projects, loading: projectsLoading } = useProjects();
+  const createTask = useCreateTask();
+  const deleteTask = useDeleteTask();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<string>("");
   const [newTask, setNewTask] = useState({
@@ -123,30 +90,39 @@ export default function Kanban({ projectId }: KanbanProps) {
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
 
-  const handleAddTask = () => {
-    if (!newTask.title || !newTask.startDate || !newTask.endDate) {
+  const handleAddTask = async () => {
+    if (
+      !newTask.title ||
+      !newTask.startDate ||
+      !newTask.endDate ||
+      !selectedColumn
+    ) {
       return;
     }
 
-    const task: Feature = {
-      id: Date.now().toString(),
-      name: newTask.title,
-      description: newTask.description,
-      column: selectedColumn,
-      startAt: newTask.startDate,
-      endAt: newTask.endDate,
-    };
+    setIsSubmitting(true);
+    try {
+      await createTask(selectedColumn, {
+        title: newTask.title,
+        description: newTask.description || null,
+        start_date: newTask.startDate.toISOString(),
+        end_date: newTask.endDate.toISOString(),
+      });
 
-    setFeatures([...features, task]);
-    setIsDialogOpen(false);
-    setNewTask({
-      title: "",
-      description: "",
-      startDate: undefined,
-      endDate: undefined,
-    });
-    setShowStartCalendar(false);
-    setShowEndCalendar(false);
+      setIsDialogOpen(false);
+      setNewTask({
+        title: "",
+        description: "",
+        startDate: undefined,
+        endDate: undefined,
+      });
+      setShowStartCalendar(false);
+      setShowEndCalendar(false);
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openDialog = (columnId: string) => {
@@ -154,19 +130,91 @@ export default function Kanban({ projectId }: KanbanProps) {
     setIsDialogOpen(true);
   };
 
+  const handleDeleteTask = async (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!confirm("Are you sure you want to delete this task?")) {
+      return;
+    }
+
+    setIsDeletingTask(taskId);
+    try {
+      await deleteTask(taskId);
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      alert("Failed to delete task. Please try again.");
+    } finally {
+      setIsDeletingTask(null);
+    }
+  };
+
+  if (!projectId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">
+          Please select a project to view the Kanban board.
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-destructive">
+          Error loading Kanban board: {error.message}
+        </p>
+      </div>
+    );
+  }
+
+  // Transform database columns and tasks
+  const kanbanColumns = dbColumns.map((col) => ({
+    id: col.id,
+    name: col.name,
+    color: col.color || "#94a3b8",
+  }));
+
+  const features = dbColumns.flatMap((col) =>
+    col.tasks.map((task) => ({
+      id: task.id,
+      name: task.title,
+      column: col.id,
+      description: task.description || undefined,
+      startAt: task.start_date ? new Date(task.start_date) : new Date(),
+      endAt: task.end_date ? new Date(task.end_date) : new Date(),
+      owner: task.assignee
+        ? {
+            name: task.assignee.clerk_user_id || "Unknown",
+            image: `https://ui-avatars.com/api/?name=${encodeURIComponent(task.assignee.clerk_user_id || "U")}`,
+          }
+        : undefined,
+    })),
+  );
+
   return (
     <>
-      {projectId && (
+      {/*{projectId && (
         <div className="mb-4">
           <p className="text-sm text-muted-foreground">
-            Viewing Kanban board for project: {projectId}
+            {projectsLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading project...
+              </span>
+            ) : (
+              <>
+                Viewing Kanban board for project:{" "}
+                {projects.find((p) => p.id === projectId)?.name || projectId}
+              </>
+            )}
           </p>
         </div>
-      )}
+      )}*/}
       <KanbanProvider
-        columns={columns}
+        columns={kanbanColumns}
         data={features}
-        onDataChange={setFeatures}
+        onDataChange={() => {}}
       >
         {(column) => (
           <KanbanBoard id={column.id} key={column.id}>
@@ -188,24 +236,38 @@ export default function Kanban({ projectId }: KanbanProps) {
                   name={feature.name}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-1">
-                      <p className="m-0 flex-1 font-medium text-sm">
-                        {feature.name}
-                      </p>
+                    <div className="flex flex-col gap-1 flex-1">
+                      <p className="m-0 font-medium text-sm">{feature.name}</p>
                       {feature.description && (
                         <p className="m-0 text-muted-foreground text-xs">
                           {feature.description}
                         </p>
                       )}
                     </div>
-                    {feature.owner && (
-                      <Avatar className="h-4 w-4 shrink-0">
-                        <AvatarImage src={feature.owner.image} />
-                        <AvatarFallback>
-                          {feature.owner.name?.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0 relative z-50">
+                      {feature.owner && (
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={feature.owner.image} />
+                          <AvatarFallback>
+                            {feature.owner.name?.slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <button
+                        onClick={(e) => handleDeleteTask(feature.id, e)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        disabled={isDeletingTask === feature.id}
+                        className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50 relative z-50"
+                        title="Delete task"
+                      >
+                        {isDeletingTask === feature.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <p className="m-0 text-muted-foreground text-xs">
                     {shortDateFormatter.format(feature.startAt)} -{" "}
@@ -234,7 +296,7 @@ export default function Kanban({ projectId }: KanbanProps) {
             <DialogTitle>Add New Task</DialogTitle>
             <DialogDescription>
               Create a new task in the{" "}
-              {columns.find((c) => c.id === selectedColumn)?.name} column.
+              {kanbanColumns.find((c) => c.id === selectedColumn)?.name} column.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -331,7 +393,24 @@ export default function Kanban({ projectId }: KanbanProps) {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddTask}>Add Task</Button>
+            <Button
+              onClick={handleAddTask}
+              disabled={
+                isSubmitting ||
+                !newTask.title ||
+                !newTask.startDate ||
+                !newTask.endDate
+              }
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Task"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
