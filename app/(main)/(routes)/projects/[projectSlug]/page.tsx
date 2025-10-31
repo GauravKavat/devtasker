@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Dashboard } from "@/components/dashboard";
 import { useParams, useRouter } from "next/navigation";
 import { useProjects } from "@/hooks/use-projects";
-import { createSlug } from "@/lib/utils";
+import { createSlug, isValidUUID } from "@/lib/utils";
 
 function ProjectDashboardContent() {
   const params = useParams();
@@ -18,6 +18,20 @@ function ProjectDashboardContent() {
 
   useEffect(() => {
     if (projects.length > 0 && projectSlug) {
+      // Check if the projectSlug is actually a UUID (project ID)
+      if (isValidUUID(projectSlug)) {
+        // Find project by ID
+        const project = projects.find((p) => p.id === projectSlug);
+        
+        if (project) {
+          // Redirect to slug URL
+          const slug = createSlug(project.name);
+          router.replace(`/projects/${slug}`);
+          return;
+        }
+      }
+      
+      // Find project by slug
       const project = projects.find(
         (p) => createSlug(p.name) === projectSlug
       );

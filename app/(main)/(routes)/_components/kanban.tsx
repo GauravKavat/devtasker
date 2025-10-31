@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Plus, CalendarIcon, Loader2, Trash2 } from "lucide-react";
 
-import { useKanban, useCreateTask, useDeleteTask } from "@/hooks/use-kanban";
+import { useKanban, useCreateTask, useDeleteTask, useMoveTask } from "@/hooks/use-kanban";
 import { useProjects } from "@/hooks/use-projects";
 import { TaskGitHubLinks, ImportIssuesDialog } from "@/components/github";
 import { useProjectRepos } from "@/hooks/use-github";
@@ -74,13 +74,14 @@ interface KanbanProps {
 }
 
 export default function Kanban({ projectId }: KanbanProps) {
-  const { columns: dbColumns, loading, error } = useKanban(projectId || "");
-  const { projects, loading: projectsLoading } = useProjects();
+  const { columns: dbColumns, error } = useKanban(projectId || "");
   const { data: repos } = useProjectRepos(projectId);
   const createTask = useCreateTask();
   const deleteTask = useDeleteTask();
+  const moveTask = useMoveTask();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
+  const [isMovingTask, setIsMovingTask] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<string>("");
@@ -197,26 +198,90 @@ export default function Kanban({ projectId }: KanbanProps) {
 
   return (
     <>
-      {/*{projectId && (
-        <div className="mb-4">
-          <p className="text-sm text-muted-foreground">
-            {projectsLoading ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading project...
-              </span>
-            ) : (
-              <>
-                Viewing Kanban board for project:{" "}
-                {projects.find((p) => p.id === projectId)?.name || projectId}
-              </>
-            )}
-          </p>
-        </div>
-      )}*/}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+
+        {/* Update in progress indicator */}
+        {isMovingTask && (
+          <div className="bg-background border rounded-lg shadow-lg p-3 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Updating task...</span>
+          </div>
+        )}
+      </div>
       <KanbanProvider
         columns={kanbanColumns}
         data={features}
+        onDragEnd={async (event) => {
+          const { active, over } = event;
+          
+          if (!over || active.id === over.id) return;
+
+          console.log("onDragEnd:", { activeId: active.id, overId: over.id });
+
+          try {
+            setIsMovingTask(true);
+
+            // Find the task that was dragged
+            const activeTask = features.find((f) => f.id === active.id);
+            if (!activeTask) {
+              console.log("Active task not found");
+              return;
+            }
+
+            // Determine the new column
+            // 'over' could be another task or a column
+            const overTask = features.find((f) => f.id === over.id);
+            const newColumnId = overTask?.column || (over.id as string);
+
+            console.log("Active task:", activeTask);
+            console.log("New column:", newColumnId);
+            console.log("Old column:", activeTask.column);
+
+            // If the column changed, update it
+            if (activeTask.column !== newColumnId) {
+              // Get tasks in the new column to determine position
+              const tasksInNewColumn = features.filter(
+                (f) => f.column === newColumnId
+              );
+              const newPosition = overTask
+                ? tasksInNewColumn.findIndex((f) => f.id === over.id)
+                : tasksInNewColumn.length;
+
+              console.log("Moving task to new column:", {
+                taskId: active.id,
+                newColumnId,
+                newPosition,
+              });
+
+              await moveTask(active.id as string, newColumnId, newPosition);
+            } else {
+              // Just reordering within the same column
+              const tasksInColumn = features.filter(
+                (f) => f.column === activeTask.column
+              );
+              const oldIndex = tasksInColumn.findIndex((f) => f.id === active.id);
+              const newIndex = tasksInColumn.findIndex((f) => f.id === over.id);
+
+              if (oldIndex !== newIndex) {
+                console.log("Reordering within column:", {
+                  taskId: active.id,
+                  oldIndex,
+                  newIndex,
+                });
+
+                await moveTask(
+                  active.id as string,
+                  activeTask.column,
+                  newIndex
+                );
+              }
+            }
+          } catch (error) {
+            console.error("Failed to move task:", error);
+          } finally {
+            setIsMovingTask(false);
+          }
+        }}
         onDataChange={() => {}}
       >
         {(column) => (

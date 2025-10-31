@@ -1,13 +1,24 @@
 import nodemailer from "nodemailer";
 
 // Create Gmail transporter using company email
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER || "hello.devtasker@gmail.com",
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+// Only create transporter if credentials are provided
+const createTransporter = () => {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPassword = process.env.GMAIL_APP_PASSWORD;
+
+  if (!gmailUser || !gmailPassword) {
+    console.warn("Gmail credentials not configured. Email functionality disabled.");
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: gmailUser,
+      pass: gmailPassword,
+    },
+  });
+};
 
 interface SendInvitationEmailParams {
   email: string;
@@ -24,6 +35,29 @@ export async function sendInvitationEmail({
 }: SendInvitationEmailParams) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const invitationUrl = `${appUrl}/invite/${invitationToken}`;
+
+  const transporter = createTransporter();
+
+  // If email is not configured, just log the invitation URL
+  if (!transporter) {
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📧 EMAIL NOT CONFIGURED - Invitation Details:");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`To: ${email}`);
+    console.log(`Project: ${projectName}`);
+    console.log(`Invited by: ${inviterName}`);
+    console.log(`Invitation URL: ${invitationUrl}`);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("\nℹ️  To enable email sending:");
+    console.log("1. Go to your Google Account settings");
+    console.log("2. Enable 2-Factor Authentication");
+    console.log("3. Generate an App Password: https://myaccount.google.com/apppasswords");
+    console.log("4. Add to .env.local:");
+    console.log("   GMAIL_USER=your-email@gmail.com");
+    console.log("   GMAIL_APP_PASSWORD=your-16-char-app-password");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    return { success: true, emailSent: false, invitationUrl };
+  }
 
   try {
     await transporter.sendMail({
@@ -83,7 +117,7 @@ export async function sendInvitationEmail({
       `,
     });
 
-    return { success: true };
+    return { success: true, emailSent: true };
   } catch (error) {
     console.error("Error sending invitation email:", error);
     throw error;

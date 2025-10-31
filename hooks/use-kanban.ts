@@ -56,31 +56,50 @@ export function useKanban(projectId: string) {
     queryKey: ["kanban", projectId],
     queryFn: () => fetchKanbanData(projectId),
     enabled: !!projectId,
-    staleTime: 20 * 1000, // 20 seconds
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true,
   });
 
   // Real-time subscription
   useEffect(() => {
     if (!projectId) return;
 
+    console.log("Setting up real-time subscription for project:", projectId);
+
     const supabase = getSupabaseClient();
     const channel = supabase
-      .channel(`project-${projectId}`)
+      .channel(`project-${projectId}-kanban`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "columns" },
-        () =>
-          queryClient.invalidateQueries({ queryKey: ["kanban", projectId] }),
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "columns",
+          filter: `project_id=eq.${projectId}`
+        },
+        (payload) => {
+          console.log("Columns changed:", payload);
+          queryClient.invalidateQueries({ queryKey: ["kanban", projectId] });
+        }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tasks" },
-        () =>
-          queryClient.invalidateQueries({ queryKey: ["kanban", projectId] }),
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "tasks"
+        },
+        (payload) => {
+          console.log("Tasks changed:", payload);
+          queryClient.invalidateQueries({ queryKey: ["kanban", projectId] });
+        }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => {
+      console.log("Cleaning up real-time subscription");
       supabase.removeChannel(channel);
     };
   }, [projectId, queryClient]);
@@ -215,27 +234,50 @@ export function useMoveTask() {
       newColumnId: string;
       newPosition: number;
     }) => {
+      console.log("useMoveTask mutationFn called:", {
+        taskId,
+        newColumnId,
+        newPosition,
+      });
+
       const supabase = getSupabaseClient();
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("tasks")
         // @ts-expect-error - Supabase type inference issue with Database schema
         .update({
           column_id: newColumnId,
           position: newPosition,
         } as any)
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("useMoveTask error:", error);
+        throw error;
+      }
+
+      console.log("useMoveTask success:", data);
+      return data;
     },
     onSuccess: () => {
+      console.log("useMoveTask onSuccess - invalidating queries");
       queryClient.invalidateQueries({ queryKey: ["kanban"] });
+    },
+    onError: (error) => {
+      console.error("useMoveTask onError:", error);
     },
   });
 
   return useCallback(
-    (taskId: string, newColumnId: string, newPosition: number) =>
-      mutation.mutateAsync({ taskId, newColumnId, newPosition }),
+    (taskId: string, newColumnId: string, newPosition: number) => {
+      console.log("useMoveTask callback called:", {
+        taskId,
+        newColumnId,
+        newPosition,
+      });
+      return mutation.mutateAsync({ taskId, newColumnId, newPosition });
+    },
     [mutation],
   );
 }

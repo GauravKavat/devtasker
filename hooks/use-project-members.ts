@@ -28,36 +28,55 @@ async function ensureUser(clerkUserId: string) {
 }
 
 async function fetchProjectMembers(projectId: string) {
-  const supabase = getSupabaseClient();
+  if (!projectId) {
+    console.log("No projectId provided, skipping fetch");
+    return [];
+  }
 
-  const { data, error } = await supabase
-    .from("project_members")
-    .select(
-      `
-      *,
-      user:users(*)
-    `,
-    )
-    .eq("project_id", projectId)
-    .order("joined_at", { ascending: true });
+  console.log("Fetching members for project:", projectId);
 
-  if (error) throw error;
-  return (data as any[]) || [];
+  try {
+    const response = await fetch(`/api/projects/${projectId}/members`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("API Error:", errorData);
+      throw new Error(errorData.error || "Failed to fetch members");
+    }
+
+    const data = await response.json();
+    console.log("Fetched members from API:", data);
+    return data.members || [];
+  } catch (error) {
+    console.error("Error fetching members:", error);
+    throw error;
+  }
 }
 
 export function useProjectMembers(projectId: string) {
   const { user } = useUser();
+  const isEnabled = !!projectId && projectId !== "" && !!user;
+
+  console.log("useProjectMembers hook:", {
+    projectId,
+    hasUser: !!user,
+    isEnabled,
+  });
 
   const query = useQuery({
     queryKey: ["project-members", projectId],
     queryFn: () => fetchProjectMembers(projectId),
-    enabled: !!projectId && !!user,
+    enabled: isEnabled,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always refetch when component mounts
   });
 
   return {
     members: query.data || [],
     loading: query.isLoading,
     error: query.error,
+    refetch: query.refetch,
   };
 }
 

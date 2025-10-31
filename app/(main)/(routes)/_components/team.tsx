@@ -41,7 +41,7 @@ interface TeamsProps {
 
 export default function Teams({ projectId }: TeamsProps) {
   const { user } = useUser();
-  const { members, loading: membersLoading } = useProjectMembers(
+  const { members, loading: membersLoading, refetch } = useProjectMembers(
     projectId || "",
   );
   const { isAdmin, loading: roleLoading } = useProjectRole(projectId || "");
@@ -82,6 +82,14 @@ export default function Teams({ projectId }: TeamsProps) {
 
   const loading = membersLoading || roleLoading;
 
+  // Debug logging
+  console.log("Team Component Debug:", {
+    projectId,
+    membersCount: members.length,
+    members,
+    loading,
+  });
+
   if (!projectId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -99,12 +107,21 @@ export default function Teams({ projectId }: TeamsProps) {
             Manage your project team and their roles
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setIsInviteDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Invite Member
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch?.()} disabled={loading}>
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              "Refresh"
+            )}
           </Button>
-        )}
+          {isAdmin && (
+            <Button onClick={() => setIsInviteDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Invite Member
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -150,7 +167,14 @@ export default function Teams({ projectId }: TeamsProps) {
                 <TableBody>
                   {members.map((member: any) => {
                     const isCurrentUser =
-                      member.user?.clerk_user_id === user?.id;
+                      member.user?.clerk_user_id === user?.id ||
+                      member.clerk_user?.id === user?.id;
+
+                    const displayName = member.clerk_user?.firstName && member.clerk_user?.lastName
+                      ? `${member.clerk_user.firstName} ${member.clerk_user.lastName}`
+                      : member.clerk_user?.email || member.user?.clerk_user_id || "Unknown User";
+
+                    const displayEmail = member.clerk_user?.email || "N/A";
 
                     return (
                       <TableRow key={member.id}>
@@ -158,7 +182,7 @@ export default function Teams({ projectId }: TeamsProps) {
                           <div className="flex items-center gap-2">
                             <UserCircle className="h-5 w-5 text-muted-foreground" />
                             <span>
-                              {member.user?.clerk_user_id || "Unknown User"}
+                              {displayName}
                               {isCurrentUser && (
                                 <Badge variant="secondary" className="ml-2">
                                   You
@@ -171,7 +195,7 @@ export default function Teams({ projectId }: TeamsProps) {
                           <div className="flex items-center gap-2">
                             <Mail className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">
-                              {member.user?.clerk_user_id || "N/A"}
+                              {displayEmail}
                             </span>
                           </div>
                         </TableCell>
