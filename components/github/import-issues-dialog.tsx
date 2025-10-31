@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useImportGitHubIssues } from "@/hooks/use-github";
+import { useProjectRole } from "@/hooks/use-project-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ export function ImportIssuesDialog({
   repoOwner: defaultOwner = "",
   repoName: defaultName = "",
 }: ImportIssuesDialogProps) {
+  const { isAdmin } = useProjectRole(projectId);
   const [isOpen, setIsOpen] = useState(false);
   const [repoOwner, setRepoOwner] = useState(defaultOwner);
   const [repoName, setRepoName] = useState(defaultName);
@@ -79,6 +81,8 @@ export function ImportIssuesDialog({
     }
   };
 
+  if (!isAdmin) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -92,7 +96,8 @@ export function ImportIssuesDialog({
           <DialogHeader>
             <DialogTitle>Import GitHub Issues</DialogTitle>
             <DialogDescription>
-              Import issues from a GitHub repository as tasks. Leave issue numbers empty to import all open issues.
+              Import issues from a GitHub repository as tasks. Leave issue
+              numbers empty to import all open issues.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -126,7 +131,8 @@ export function ImportIssuesDialog({
                 disabled={importMutation.isPending}
               />
               <p className="text-xs text-muted-foreground">
-                Comma-separated issue numbers. Leave empty to import all open issues.
+                Comma-separated issue numbers. Leave empty to import all open
+                issues.
               </p>
             </div>
 
@@ -138,7 +144,9 @@ export function ImportIssuesDialog({
 
             {success && (
               <Alert>
-                <AlertDescription className="text-green-600">{success}</AlertDescription>
+                <AlertDescription className="text-green-600">
+                  {success}
+                </AlertDescription>
               </Alert>
             )}
           </div>

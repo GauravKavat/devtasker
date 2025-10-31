@@ -235,6 +235,61 @@ export type Database = {
           updated_at?: string;
         };
       };
+      project_members: {
+        Row: {
+          id: string;
+          project_id: string;
+          user_id: string;
+          role: string;
+          invited_by: string | null;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          user_id: string;
+          role?: string;
+          invited_by?: string | null;
+          joined_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          user_id?: string;
+          role?: string;
+          invited_by?: string | null;
+        };
+      };
+      project_invitations: {
+        Row: {
+          id: string;
+          project_id: string;
+          email: string;
+          token: string;
+          role: string;
+          invited_by: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          email: string;
+          token: string;
+          role?: string;
+          invited_by: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          expires_at?: string;
+          used_at?: string | null;
+        };
+      };
     };
   };
 };
@@ -250,6 +305,10 @@ export type GitHubCommit =
   Database["public"]["Tables"]["github_commits"]["Row"];
 export type GitHubWebhook =
   Database["public"]["Tables"]["github_webhooks"]["Row"];
+export type ProjectMember =
+  Database["public"]["Tables"]["project_members"]["Row"];
+export type ProjectInvitation =
+  Database["public"]["Tables"]["project_invitations"]["Row"];
 
 export type TaskWithAssignee = Task & {
   assignee: User | null;
@@ -266,4 +325,8 @@ export type TaskWithGitHub = TaskWithAssignee & {
 
 export type ProjectWithRepos = Project & {
   repos?: ProjectRepo[];
+};
+
+export type ProjectMemberWithUser = ProjectMember & {
+  user: User;
 };

@@ -35,14 +35,49 @@ async function fetchProjects(userId: string) {
 
   if (!dbUser) throw new Error("Failed to get user");
 
-  const { data, error } = await supabase
+  // Get projects where user is owner
+  const { data: ownedProjects, error: ownedError } = await supabase
     .from("projects")
     .select("*")
-    .eq("owner_id", (dbUser as any).id)
-    .order("created_at", { ascending: false });
+    .eq("owner_id", (dbUser as any).id);
 
-  if (error) throw error;
-  return (data as Project[]) || [];
+  if (ownedError) throw ownedError;
+
+  // Get projects where user is a member
+  const { data: memberProjects, error: memberError } = await supabase
+    .from("project_members")
+    .select("project_id")
+    .eq("user_id", (dbUser as any).id);
+
+  if (memberError) throw memberError;
+
+  const memberProjectIds = memberProjects?.map((m: any) => m.project_id) || [];
+
+  // Fetch member projects details
+  let allProjects = [...(ownedProjects || [])];
+
+  if (memberProjectIds.length > 0) {
+    const { data: memberProjectDetails, error: detailsError } = await supabase
+      .from("projects")
+      .select("*")
+      .in("id", memberProjectIds);
+
+    if (!detailsError && memberProjectDetails) {
+      // Filter out duplicates (in case user is both owner and member)
+      const existingIds = new Set(allProjects.map((p: any) => p.id));
+      const uniqueMemberProjects = memberProjectDetails.filter(
+        (p: any) => !existingIds.has(p.id),
+      );
+      allProjects = [...allProjects, ...uniqueMemberProjects];
+    }
+  }
+
+  // Sort by created_at
+  allProjects.sort((a: any, b: any) => {
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  return (allProjects as Project[]) || [];
 }
 
 export function useProjects() {
@@ -140,6 +175,14 @@ export function useCreateProject() {
           project_id: (data as any).id,
         })) as any,
       );
+
+      // Add creator as admin
+      await supabase.from("project_members").insert({
+        project_id: (data as any).id,
+        user_id: (dbUser as any).id,
+        role: "admin",
+        invited_by: null,
+      } as any);
 
       return data as Project;
     },

@@ -44,6 +44,8 @@ import {
   FolderKanban,
   Pen,
   Calendar,
+  Copy,
+  Check,
 } from "lucide-react";
 import { createSlug } from "@/lib/utils";
 import { format } from "date-fns";
@@ -58,6 +60,9 @@ export default function Projects() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isProjectIdDialogOpen, setIsProjectIdDialogOpen] = useState(false);
+  const [createdProjectId, setCreatedProjectId] = useState<string>("");
+  const [isCopied, setIsCopied] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [projectToEdit, setProjectToEdit] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,12 +96,13 @@ export default function Projects() {
         ? newProject.start_date
         : new Date().toISOString().split("T")[0];
 
-      await createProject(
+      const result = await createProject(
         newProject.name,
         newProject.description,
         startDate,
         newProject.deadline,
       );
+
       setIsCreateDialogOpen(false);
       setNewProject({
         name: "",
@@ -104,6 +110,12 @@ export default function Projects() {
         start_date: "",
         deadline: "",
       });
+
+      // Show the project ID dialog
+      if (result && (result as any).id) {
+        setCreatedProjectId((result as any).id);
+        setIsProjectIdDialogOpen(true);
+      }
     } catch (err) {
       console.error("Failed to create project:", err, JSON.stringify(err));
       alert(
@@ -111,6 +123,17 @@ export default function Projects() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCopyProjectId = async () => {
+    try {
+      await navigator.clipboard.writeText(createdProjectId);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      alert("Failed to copy project ID");
     }
   };
 
@@ -496,6 +519,63 @@ export default function Projects() {
               ) : (
                 "Delete Project"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Project Created Success Dialog with Project ID */}
+      <AlertDialog
+        open={isProjectIdDialogOpen}
+        onOpenChange={setIsProjectIdDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Project Created Successfully! 🎉
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your project has been created. Here is your Project ID for
+              reference:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+              <code className="flex-1 text-sm font-mono break-all">
+                {createdProjectId}
+              </code>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyProjectId}
+                className="shrink-0"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Save this ID if you need it for API integrations or references.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setIsProjectIdDialogOpen(false);
+                setCreatedProjectId("");
+                setIsCopied(false);
+              }}
+            >
+              Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

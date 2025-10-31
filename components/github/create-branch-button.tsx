@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCreateBranch } from "@/hooks/use-github";
+import { useProjectRole } from "@/hooks/use-project-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface CreateBranchButtonProps {
   taskId: string;
   taskTitle: string;
+  projectId: string;
   repoOwner?: string;
   repoName?: string;
   baseBranch?: string;
@@ -28,17 +30,22 @@ interface CreateBranchButtonProps {
 export function CreateBranchButton({
   taskId,
   taskTitle,
+  projectId,
   repoOwner: defaultOwner = "",
   repoName: defaultName = "",
   baseBranch: defaultBase = "main",
 }: CreateBranchButtonProps) {
+  const { isAdmin } = useProjectRole(projectId);
   const [isOpen, setIsOpen] = useState(false);
   const [repoOwner, setRepoOwner] = useState(defaultOwner);
   const [repoName, setRepoName] = useState(defaultName);
   const [branchName, setBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBase);
   const [error, setError] = useState<string | null>(null);
-  const [createdBranch, setCreatedBranch] = useState<{ name: string; url: string } | null>(null);
+  const [createdBranch, setCreatedBranch] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
 
   const createBranchMutation = useCreateBranch();
 
@@ -90,6 +97,8 @@ export function CreateBranchButton({
       setError(err instanceof Error ? err.message : "Failed to create branch");
     }
   };
+
+  if (!isAdmin) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpen}>
