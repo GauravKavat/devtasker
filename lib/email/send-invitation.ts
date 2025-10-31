@@ -1,6 +1,13 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Create Gmail transporter using company email
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER || "hello.devtasker@gmail.com",
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
 interface SendInvitationEmailParams {
   email: string;
@@ -19,8 +26,8 @@ export async function sendInvitationEmail({
   const invitationUrl = `${appUrl}/invite/${invitationToken}`;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: "DevTasker <onboarding@resend.dev>",
+    await transporter.sendMail({
+      from: '"DevTasker" <hello.devtasker@gmail.com>',
       to: email,
       subject: `You've been invited to join ${projectName}`,
       html: `
@@ -76,12 +83,7 @@ export async function sendInvitationEmail({
       `,
     });
 
-    if (error) {
-      console.error("Failed to send invitation email:", error);
-      throw error;
-    }
-
-    return { success: true, data };
+    return { success: true };
   } catch (error) {
     console.error("Error sending invitation email:", error);
     throw error;

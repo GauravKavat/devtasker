@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send invitation email
+    // Send invitation email via Gmail SMTP
     try {
       const inviterName =
         user.firstName && user.lastName

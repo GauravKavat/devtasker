@@ -98,7 +98,7 @@ export function InviteMemberDialog({
             </div>
             <h3 className="text-lg font-semibold mb-2">Invitation Sent!</h3>
             <p className="text-sm text-muted-foreground">
-              An email has been sent to {email} with the invitation link
+              An invitation email has been sent to {email}
             </p>
           </div>
         ) : (
@@ -121,7 +121,11 @@ export function InviteMemberDialog({
 
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={setRole} disabled={isSubmitting}>
+                <Select
+                  value={role}
+                  onValueChange={setRole}
+                  disabled={isSubmitting}
+                >
                   <SelectTrigger id="role">
                     <SelectValue />
                   </SelectTrigger>
