@@ -33,6 +33,8 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
     "@tanstack/react-query": "^5.90.5",
+    "@toast-ui/calendar": "^2.1.3",
+    "@toast-ui/react-calendar": "^2.1.3",
     "@uidotdev/usehooks": "^2.4.1",
     "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
