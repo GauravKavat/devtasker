@@ -6,6 +6,8 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -44,14 +46,36 @@ const Roles = dynamic(() => import("@/app/(main)/(routes)/_components/roles"), {
 
 interface DashboardProps {
   projectId?: string;
+  projectName?: string;
 }
 
-export function Dashboard({ projectId }: DashboardProps) {
+export function Dashboard({ projectId, projectName }: DashboardProps) {
   const searchParams = useSearchParams();
   const view = searchParams.get("view") || "dashboard";
   const { isSignedIn, isLoaded } = useUser();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  const getViewName = () => {
+    switch (view) {
+      case "kanban":
+        return "Kanban Board";
+      case "calendar":
+        return "Calendar";
+      case "github":
+        return "GitHub";
+      case "github-repos":
+        return "GitHub Repos";
+      case "github-url":
+        return "GitHub URL";
+      case "team":
+        return "Team Members";
+      case "roles":
+        return "Roles & Permissions";
+      default:
+        return "Dashboard";
+    }
+  };
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/unauthorized");
@@ -94,11 +118,24 @@ export function Dashboard({ projectId }: DashboardProps) {
     <>
       <header className="flex h-16 items-center gap-2 border-b px-4">
         <SidebarTrigger />
-        <Separator orientation="vertical" className="h-4" />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink href="/projects">Projects</BreadcrumbLink>
+            </BreadcrumbItem>
+            {projectName && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href={`/projects/${projectId}`}>
+                    {projectName}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </>
+            )}
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{getViewName()}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>

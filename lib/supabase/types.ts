@@ -290,6 +290,43 @@ export type Database = {
           used_at?: string | null;
         };
       };
+      meetings: {
+        Row: {
+          id: string;
+          project_id: string;
+          title: string;
+          description: string | null;
+          start_time: string; // or meeting_time if you didn't rename
+          end_time: string | null;
+          created_by: string;
+          created_at: string;
+          attendees: string[] | null;
+          google_calendar_event_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          title: string;
+          description?: string | null;
+          start_time: string; // or meeting_time
+          end_time?: string | null;
+          created_by: string;
+          created_at?: string;
+          attendees?: string[] | null;
+          google_calendar_event_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          title?: string;
+          description?: string | null;
+          start_time?: string; // or meeting_time
+          end_time?: string | null;
+          created_by?: string;
+          attendees?: string[] | null;
+          google_calendar_event_id?: string | null;
+        };
+      };
     };
   };
 };
@@ -330,3 +367,5 @@ export type ProjectWithRepos = Project & {
 export type ProjectMemberWithUser = ProjectMember & {
   user: User;
 };
+
+export type Meeting = Database["public"]["Tables"]["meetings"]["Row"];

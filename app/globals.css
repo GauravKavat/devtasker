@@ -127,6 +127,10 @@
         0px 1px 0px 0px hsl(0 0% 0% / 0), 0px 8px 10px -1px hsl(0 0% 0% / 0);
     --shadow-2xl: 0px 1px 0px 0px hsl(0 0% 0% / 0);
     --tracking-normal: 0em;
+    --sx-bg-primary: #fff;
+    --sx-bg-secondary: #f9fafb;
+    --sx-text-primary: #111827;
+    --sx-border-color: #e5e7eb;
 }
 
 .dark {
@@ -187,6 +191,10 @@
     --shadow-xl:
         0px 1px 0px 0px hsl(0 0% 0% / 0), 0px 8px 10px -1px hsl(0 0% 0% / 0);
     --shadow-2xl: 0px 1px 0px 0px hsl(0 0% 0% / 0);
+    --sx-bg-primary: #1f2937;
+    --sx-bg-secondary: #111827;
+    --sx-text-primary: #f9fafb;
+    --sx-border-color: #374151;
 }
 
 @layer base {

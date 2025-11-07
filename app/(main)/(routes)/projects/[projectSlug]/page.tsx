@@ -15,6 +15,7 @@ function ProjectDashboardContent() {
   const projectSlug = params.projectSlug as string;
   const { projects, loading } = useProjects();
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>("");
 
   useEffect(() => {
     if (projects.length > 0 && projectSlug) {
@@ -22,7 +23,7 @@ function ProjectDashboardContent() {
       if (isValidUUID(projectSlug)) {
         // Find project by ID
         const project = projects.find((p) => p.id === projectSlug);
-        
+
         if (project) {
           // Redirect to slug URL
           const slug = createSlug(project.name);
@@ -30,14 +31,13 @@ function ProjectDashboardContent() {
           return;
         }
       }
-      
+
       // Find project by slug
-      const project = projects.find(
-        (p) => createSlug(p.name) === projectSlug
-      );
-      
+      const project = projects.find((p) => createSlug(p.name) === projectSlug);
+
       if (project) {
         setProjectId(project.id);
+        setProjectName(project.name);
       } else if (!loading) {
         router.push("/projects");
       }
@@ -52,7 +52,7 @@ function ProjectDashboardContent() {
     );
   }
 
-  return <Dashboard projectId={projectId} />;
+  return <Dashboard projectId={projectId} projectName={projectName} />;
 }
 
 export default function ProjectDashboardPage() {
