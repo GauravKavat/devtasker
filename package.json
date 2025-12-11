@@ -1,6 +1,8 @@
 {
   "name": "devtasker",
   "version": "0.1.0",
+  "description": "The ultimate project management tool for developers.",
+  "author": "Gaurav",
   "main": "electron/main.js",
   "private": true,
   "scripts": {
@@ -12,14 +14,30 @@
   "build": {
     "appId": "com.devtasker.app",
     "productName": "DevTasker",
+    "directories": {
+      "output": "dist",
+      "buildResources": "public"
+    },
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "public/icon.png"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DevTasker",
+      "runAfterFinish": true,
+      "artifactName": "${productName}.${ext}"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "public/icon.png"
     }
   },
   "dependencies": {

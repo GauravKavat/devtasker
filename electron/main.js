@@ -1,10 +1,11 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
+    width: 1280,
     height: 800,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, "../public/icon.png"),
     webPreferences: {
       nodeIntegration: false,
@@ -13,13 +14,22 @@ function createWindow() {
   });
 
   win.removeMenu();
+  const appUrl = "https://devtasker-delta.vercel.app/";
 
-  const startUrl = process.env.ELECTRON_START_URL || "http://localhost:3000";
-  win.loadURL(startUrl);
+  win.loadURL(appUrl);
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith("https://devtasker-delta.vercel.app")) {
+      shell.openExternal(url);
+      return { action: "deny" };
+    }
+    return { action: "allow" };
+  });
 }
 
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 });
