@@ -37,13 +37,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Plus,
   Loader2,
   Trash2,
   FolderKanban,
   Pen,
-  Calendar,
+  Calendar as CalendarIcon,
   Copy,
   Check,
 } from "lucide-react";
@@ -66,18 +72,25 @@ export default function Projects() {
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [projectToEdit, setProjectToEdit] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for create dialog
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
-    start_date: "",
-    deadline: "",
+    startDate: undefined as Date | undefined,
+    deadline: undefined as Date | undefined,
   });
+
+  // State for edit dialog
   const [editProject, setEditProject] = useState({
     name: "",
     description: "",
-    start_date: "",
-    deadline: "",
+    startDate: undefined as Date | undefined,
+    deadline: undefined as Date | undefined,
   });
+
+  // Track which calendar is open (only one at a time)
+  const [openCalendar, setOpenCalendar] = useState<string | null>(null);
 
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
@@ -85,31 +98,34 @@ export default function Projects() {
       return;
     }
 
-    if (!newProject.deadline.trim()) {
-      alert("Please enter a project deadline");
+    if (!newProject.deadline) {
+      alert("Please select a project deadline");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const startDate = newProject.start_date.trim()
-        ? newProject.start_date
+      const startDate = newProject.startDate
+        ? newProject.startDate.toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
+
+      const deadline = newProject.deadline.toISOString().split("T")[0];
 
       const result = await createProject(
         newProject.name,
         newProject.description,
         startDate,
-        newProject.deadline,
+        deadline,
       );
 
       setIsCreateDialogOpen(false);
       setNewProject({
         name: "",
         description: "",
-        start_date: "",
-        deadline: "",
+        startDate: undefined,
+        deadline: undefined,
       });
+      setOpenCalendar(null);
 
       // Show the project ID dialog
       if (result && (result as any).id) {
@@ -147,24 +163,29 @@ export default function Projects() {
 
     setIsSubmitting(true);
     try {
-      const startDate = editProject.start_date.trim()
-        ? editProject.start_date
+      const startDate = editProject.startDate
+        ? editProject.startDate.toISOString().split("T")[0]
         : projectToEdit.start_date || new Date().toISOString().split("T")[0];
+
+      const deadline = editProject.deadline
+        ? editProject.deadline.toISOString().split("T")[0]
+        : projectToEdit.deadline;
 
       await updateProject(projectToEdit.id, {
         name: editProject.name,
         description: editProject.description,
         start_date: startDate,
-        deadline: editProject.deadline,
+        deadline: deadline,
       });
       setIsEditDialogOpen(false);
       setProjectToEdit(null);
       setEditProject({
         name: "",
         description: "",
-        start_date: "",
-        deadline: "",
+        startDate: undefined,
+        deadline: undefined,
       });
+      setOpenCalendar(null);
     } catch (err) {
       console.error("Failed to update project:", err);
       alert("Failed to update project");
@@ -262,8 +283,12 @@ export default function Projects() {
                         setEditProject({
                           name: project.name,
                           description: project.description || "",
-                          start_date: project.start_date || "",
-                          deadline: project.deadline || "",
+                          startDate: project.start_date
+                            ? new Date(project.start_date)
+                            : undefined,
+                          deadline: project.deadline
+                            ? new Date(project.deadline)
+                            : undefined,
                         });
                         setIsEditDialogOpen(true);
                       }}
@@ -293,7 +318,7 @@ export default function Projects() {
               <CardContent className="pb-2">
                 {project.deadline && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
+                    <CalendarIcon className="h-4 w-4" />
                     <span>
                       Deadline:{" "}
                       {format(new Date(project.deadline), "MMM d, yyyy")}
@@ -347,42 +372,98 @@ export default function Projects() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="start-date">Start Date</Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={newProject.start_date}
-                onChange={(e) =>
-                  setNewProject({ ...newProject, start_date: e.target.value })
+              <Popover
+                open={openCalendar === "create-start"}
+                onOpenChange={(open) =>
+                  setOpenCalendar(open ? "create-start" : null)
                 }
-                placeholder="Start date (defaults to today)"
-                disabled={isSubmitting}
-              />
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    id="start-date"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    type="button"
+                    disabled={isSubmitting}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newProject.startDate ? (
+                      format(newProject.startDate, "PPP")
+                    ) : (
+                      <span>Pick a date (defaults to today)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={newProject.startDate}
+                    onSelect={(date) => {
+                      setNewProject({ ...newProject, startDate: date });
+                      setOpenCalendar(null);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="deadline">
                 Deadline <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="deadline"
-                type="date"
-                value={newProject.deadline}
-                onChange={(e) =>
-                  setNewProject({ ...newProject, deadline: e.target.value })
+              <Popover
+                open={openCalendar === "create-deadline"}
+                onOpenChange={(open) =>
+                  setOpenCalendar(open ? "create-deadline" : null)
                 }
-                placeholder="Enter project deadline"
-                disabled={isSubmitting}
-              />
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    id="deadline"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    type="button"
+                    disabled={isSubmitting}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newProject.deadline ? (
+                      format(newProject.deadline, "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={newProject.deadline}
+                    onSelect={(date) => {
+                      setNewProject({ ...newProject, deadline: date });
+                      setOpenCalendar(null);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
+              onClick={() => {
+                setIsCreateDialogOpen(false);
+                setOpenCalendar(null);
+              }}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateProject} disabled={isSubmitting}>
+            <Button
+              onClick={handleCreateProject}
+              disabled={
+                isSubmitting || !newProject.name || !newProject.deadline
+              }
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -435,46 +516,96 @@ export default function Projects() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-start-date">Start Date</Label>
-              <Input
-                id="edit-start-date"
-                type="date"
-                value={editProject.start_date}
-                onChange={(e) =>
-                  setEditProject({
-                    ...editProject,
-                    start_date: e.target.value,
-                  })
+              <Popover
+                open={openCalendar === "edit-start"}
+                onOpenChange={(open) =>
+                  setOpenCalendar(open ? "edit-start" : null)
                 }
-                disabled={isSubmitting}
-              />
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    id="edit-start-date"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    type="button"
+                    disabled={isSubmitting}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editProject.startDate ? (
+                      format(editProject.startDate, "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={editProject.startDate}
+                    onSelect={(date) => {
+                      setEditProject({ ...editProject, startDate: date });
+                      setOpenCalendar(null);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-deadline">
                 Deadline <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="edit-deadline"
-                type="date"
-                value={editProject.deadline}
-                onChange={(e) =>
-                  setEditProject({
-                    ...editProject,
-                    deadline: e.target.value,
-                  })
+              <Popover
+                open={openCalendar === "edit-deadline"}
+                onOpenChange={(open) =>
+                  setOpenCalendar(open ? "edit-deadline" : null)
                 }
-                disabled={isSubmitting}
-              />
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    id="edit-deadline"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    type="button"
+                    disabled={isSubmitting}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editProject.deadline ? (
+                      format(editProject.deadline, "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={editProject.deadline}
+                    onSelect={(date) => {
+                      setEditProject({ ...editProject, deadline: date });
+                      setOpenCalendar(null);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setOpenCalendar(null);
+              }}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button onClick={handleEditProject} disabled={isSubmitting}>
+            <Button
+              onClick={handleEditProject}
+              disabled={isSubmitting || !editProject.name}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

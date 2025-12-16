@@ -50,3 +50,35 @@ The project management landscape forces a compromise:
 * **Focus on What Matters:** Cut through the noise of unnecessary features and focus purely on delivering value.
 
 **Stop letting your tools dictate your potential. DevTasker empowers you to build better, faster.**
+
+---
+
+## 🎨 Powerful Components Library
+
+DevTasker includes a comprehensive set of production-ready components designed for modern project management:
+
+### 📝 Task Management
+* **Advanced Task Forms** - React Hook Form with Zod validation for bulletproof data integrity
+* **Rich Text Editor** - Tiptap-powered WYSIWYG editor with full formatting capabilities
+* **Drag & Drop Interface** - Intuitive file uploads with react-dropzone
+
+### 📊 Data Visualization
+* **Interactive Charts** - Beautiful Recharts visualizations (Line, Bar, Area, Pie, Donut)
+* **Real-time Analytics** - Live project insights and team performance metrics
+* **Custom Dashboards** - Flexible data presentation tailored to your workflow
+
+### 🔔 Developer Experience
+* **Toast Notifications** - Elegant Sonner-based notifications for instant feedback
+* **Time Picker** - Precise scheduling with custom time selection components
+* **Dark Mode Support** - Every component optimized for light and dark themes
+
+### 📚 Documentation
+All components include:
+* Comprehensive documentation with examples
+* TypeScript definitions for type safety
+* Accessibility features (ARIA labels, keyboard navigation)
+* Responsive design for any screen size
+
+See `COMPONENTS.md` for full documentation and usage examples.
+
+---

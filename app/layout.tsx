@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemedClerkProvider } from "@/components/clerk-theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Analytics } from "@vercel/analytics/next";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ export default function RootLayout({
             <ThemedClerkProvider>
               {children}
               <Analytics />
+              <Toaster />
             </ThemedClerkProvider>
           </ThemeProvider>
         </QueryProvider>

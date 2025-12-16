@@ -45,19 +45,21 @@ export function UserNav() {
     .slice(0, 2);
 
   return (
-    <div className="flex items-center gap-2 w-full">
+    <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-3 flex-1 p-2 rounded-lg">
+          <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.imageUrl} alt={userName} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium truncate">{userName}</span>
-            <Settings className="h-4 w-4 text-muted-foreground ml-auto" />
+            <span className="text-sm font-medium truncate max-w-[150px] hidden sm:inline-block">
+              {userName}
+            </span>
+            <Settings className="h-4 w-4 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 ml-3" forceMount>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">{userName}</p>
@@ -95,10 +97,10 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="w-px h-8 bg-border" />
+      <div className="w-px h-8 bg-border hidden sm:block" />
       <button
         onClick={toggleTheme}
-        className="h-8 w-8 shrink-0 flex items-center justify-center"
+        className="h-8 w-8 shrink-0 flex items-center justify-center hover:bg-accent rounded-lg transition-colors"
       >
         {mounted ? (
           <>

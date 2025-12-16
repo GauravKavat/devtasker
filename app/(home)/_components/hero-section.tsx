@@ -22,10 +22,20 @@ export default function HeroSection() {
       setIsNavigating(true);
 
       // Wait for session token to ensure server-side session is ready
-      await getToken();
+      // Retry up to 3 times to handle race conditions
+      let token = null;
+      for (let i = 0; i < 3; i++) {
+        try {
+          token = await getToken();
+          if (token) break;
+        } catch (e) {
+          if (i === 2) throw e;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
 
-      // Small delay to ensure cookie propagation
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Longer delay to ensure cookie propagation to server middleware
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Now navigate to projects
       router.push("/projects");

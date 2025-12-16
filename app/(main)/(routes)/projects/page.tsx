@@ -1,168 +1,95 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useTransition } from "react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { SearchForm } from "@/components/search-form";
+import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { UserNav } from "@/components/user-nav";
-import Gantt from "../_components/gantt";
 import Projects from "../_components/projects";
 import { Loader2 } from "lucide-react";
 
-// Navigation data for projects sidebar
-const projectsNavData = [
-  {
-    title: "Project Views",
-    items: [
-      {
-        title: "Projects",
-        url: "/projects",
-        view: "projects",
-      },
-      {
-        title: "Gantt Chart",
-        url: "/projects?view=gantt",
-        view: "gantt",
-      },
-    ],
-  },
-];
-
 function ProjectsContentWithParams() {
-  const searchParams = useSearchParams();
-  const currentView = searchParams.get("view") || "projects";
+  const router = useRouter();
 
   const getBreadcrumbInfo = () => {
-    switch (currentView) {
-      case "gantt":
-        return { section: "Projects", page: "Gantt Chart" };
-      default:
-        return { section: "Projects", page: "Overview" };
-    }
+    return { section: "Projects", page: "Overview" };
   };
 
   const breadcrumbInfo = getBreadcrumbInfo();
 
   const renderContent = () => {
-    switch (currentView) {
-      case "gantt":
-        return <Gantt />;
-      default:
-        return <Projects />;
-    }
+    return <Projects />;
   };
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Projects / {breadcrumbInfo.page}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">{renderContent()}</div>
-    </>
-  );
-}
-
-function ProjectsSidebar() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentView = searchParams.get("view") || "projects";
-
-  return (
-    <Sidebar>
-      <SidebarHeader>
-        <div
-          className="flex items-center justify-center gap-x-4 p-2 border-b border-muted cursor-pointer"
-          onClick={() => {
-            router.push("/");
-          }}
-        >
-          <Image
-            src="/devtasker.svg"
-            alt="DevTasker Logo"
-            width={28}
-            height={28}
-            className="dark:invert"
-          />
-          <h1 className="flex items-baseline text-3xl font-semibold mt-1">
-            DevTasker
-          </h1>
+    <div className="flex flex-col min-h-screen">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-4 border-b px-4 sm:px-6">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+          <div
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0"
+            onClick={() => {
+              router.push("/");
+            }}
+          >
+            <Image
+              src="/devtasker.svg"
+              alt="DevTasker Logo"
+              width={24}
+              height={24}
+              className="dark:invert sm:w-7 sm:h-7"
+            />
+            <h1 className="text-xl sm:text-2xl font-semibold hidden xs:block">
+              DevTasker
+            </h1>
+          </div>
         </div>
-        <SearchForm />
-      </SidebarHeader>
-      <SidebarContent>
-        {projectsNavData.map((section) => (
-          <SidebarGroup key={section.title}>
-            <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={currentView === item.view}
-                    >
-                      <Link href={item.url}>{item.title}</Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-      </SidebarContent>
-      <SidebarFooter>
-        <UserNav />
-      </SidebarFooter>
-    </Sidebar>
+        <div className="flex items-center shrink-0">
+          <UserNav />
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
+        {renderContent()}
+      </div>
+    </div>
   );
 }
 
 export default function ProjectsPage() {
+  const { isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    // Wait for auth to load
+    if (isLoaded) {
+      if (!isSignedIn) {
+        // If not signed in after loading, redirect to home
+        router.push("/");
+      } else {
+        // Auth is good, show content
+        setIsChecking(false);
+      }
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Show loading while checking auth
+  if (!isLoaded || isChecking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <SidebarProvider>
-      <Suspense fallback={<div>Loading sidebar...</div>}>
-        <ProjectsSidebar />
-      </Suspense>
-      <SidebarInset>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center min-h-screen">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          }
-        >
-          <ProjectsContentWithParams />
-        </Suspense>
-      </SidebarInset>
-    </SidebarProvider>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ProjectsContentWithParams />
+    </Suspense>
   );
 }
