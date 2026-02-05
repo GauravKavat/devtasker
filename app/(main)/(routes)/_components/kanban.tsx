@@ -24,39 +24,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Plus, CalendarIcon, Loader2, Trash2 } from "lucide-react";
 
 import { useKanban, useCreateTask, useDeleteTask, useMoveTask } from "@/hooks/use-kanban";
-import { useProjects } from "@/hooks/use-projects";
 import { TaskGitHubLinks, ImportIssuesDialog } from "@/components/github";
 import { useProjectRepos } from "@/hooks/use-github";
 
 import { format } from "date-fns";
-
-// type BackgroundColor = string;
-
-// type Column = {
-//   id: string;
-//   name: string;
-//   color?: BackgroundColor;
-// };
-
-// type Feature = {
-//   id: string;
-//   name: string;
-//   column: string;
-//   description?: string;
-//   startAt: Date;
-//   endAt: Date;
-//   owner?: {
-//     name: string;
-//     image: string;
-//   };
-// };
-
-// const columns: Column[] = [
-//   { id: "backlog", name: "Backlog", color: "#94a3b8" },
-//   { id: "todo", name: "To Do", color: "#60a5fa" },
-//   { id: "in-progress", name: "In Progress", color: "#fbbf24" },
-//   { id: "done", name: "Done", color: "#34d399" },
-// ];
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",

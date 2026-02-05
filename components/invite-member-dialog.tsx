@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCreateInvitation } from "@/hooks/use-invitations";
+import { useProjectRoles } from "@/hooks/use-project-roles";
 import { Loader2, Send } from "lucide-react";
 import {
   Dialog,
@@ -34,10 +35,16 @@ export function InviteMemberDialog({
   projectId,
 }: InviteMemberDialogProps) {
   const createInvitation = useCreateInvitation();
+  const { roles, loading: rolesLoading } = useProjectRoles(projectId);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const selectableRoles = roles.length > 0 ? roles : [
+    { id: "member", name: "Member" },
+    { id: "admin", name: "Admin" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,34 +131,37 @@ export function InviteMemberDialog({
                 <Select
                   value={role}
                   onValueChange={setRole}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || rolesLoading}
                 >
                   <SelectTrigger id="role">
-                    <SelectValue />
+                    <SelectValue placeholder={rolesLoading ? "Loading roles" : "Select role"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-blue-500" />
-                        <div>
-                          <div className="font-medium">Member</div>
-                          <div className="text-xs text-muted-foreground">
-                            Can view and edit tasks
+                    {selectableRoles.map((roleItem) => (
+                      <SelectItem key={roleItem.id} value={roleItem.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={
+                              roleItem.id === "admin"
+                                ? "h-2 w-2 rounded-full bg-purple-500"
+                                : "h-2 w-2 rounded-full bg-blue-500"
+                            }
+                          />
+                          <div>
+                            <div className="font-medium">{roleItem.name}</div>
+                            {roleItem.id === "admin" ? (
+                              <div className="text-xs text-muted-foreground">
+                                Full access to manage project
+                              </div>
+                            ) : roleItem.id === "member" ? (
+                              <div className="text-xs text-muted-foreground">
+                                Can view and edit tasks
+                              </div>
+                            ) : null}
                           </div>
                         </div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-purple-500" />
-                        <div>
-                          <div className="font-medium">Admin</div>
-                          <div className="text-xs text-muted-foreground">
-                            Full access to manage project
-                          </div>
-                        </div>
-                      </div>
-                    </SelectItem>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

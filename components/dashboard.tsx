@@ -9,13 +9,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSupabaseClient } from "@/lib/supabase/client-singleton";
 
 const Kanban = dynamic(
   () => import("@/app/(main)/(routes)/_components/kanban"),
@@ -43,6 +41,10 @@ const Teams = dynamic(() => import("@/app/(main)/(routes)/_components/team"), {
 const Roles = dynamic(() => import("@/app/(main)/(routes)/_components/roles"), {
   ssr: false,
 });
+const Overview = dynamic(
+  () => import("@/app/(main)/(routes)/_components/overview"),
+  { ssr: false },
+);
 
 interface DashboardProps {
   projectId?: string;
@@ -54,7 +56,7 @@ export function Dashboard({ projectId, projectName }: DashboardProps) {
   const view = searchParams.get("view") || "dashboard";
   const { isSignedIn, isLoaded } = useUser();
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   const getViewName = () => {
     switch (view) {
@@ -107,9 +109,7 @@ export function Dashboard({ projectId, projectName }: DashboardProps) {
         return <Roles projectId={projectId} />;
       default:
         return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-          </div>
+          <Overview projectId={projectId} projectName={projectName} />
         );
     }
   };

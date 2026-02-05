@@ -3,6 +3,9 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase/client-singleton";
 import { sendInvitationEmail } from "@/lib/email/send-invitation";
 import { v4 as uuidv4 } from "uuid";
+import { DEFAULT_ROLES } from "@/lib/roles";
+
+const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
 
 async function ensureUser(clerkUserId: string) {
   const supabase = getSupabaseClient();
@@ -23,6 +26,24 @@ async function ensureUser(clerkUserId: string) {
   }
 
   return dbUser;
+}
+
+async function isRoleValid(
+  projectId: string,
+  role: string,
+  supabase = getSupabaseClient(),
+) {
+  if (!role) return false;
+  if (SYSTEM_ROLE_IDS.has(role)) return true;
+
+  const { data } = await supabase
+    .from("project_roles")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("name", role)
+    .maybeSingle();
+
+  return !!data;
 }
 
 export async function POST(request: NextRequest) {
@@ -66,6 +87,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Only admins can invite members" },
         { status: 403 },
+      );
+    }
+
+    const validRole = await isRoleValid(projectId, role, supabase);
+
+    if (!validRole) {
+      return NextResponse.json(
+        { error: "Invalid role" },
+        { status: 400 },
       );
     }
 

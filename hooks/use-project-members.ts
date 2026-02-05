@@ -4,28 +4,6 @@ import { useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/lib/supabase/client-singleton";
-import type { ProjectMemberWithUser } from "@/lib/supabase/types";
-
-async function ensureUser(clerkUserId: string) {
-  const supabase = getSupabaseClient();
-
-  let { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
-
-  if (!dbUser) {
-    const { data: newUser } = await supabase
-      .from("users")
-      .insert({ clerk_user_id: clerkUserId } as any)
-      .select("id")
-      .single();
-    dbUser = newUser;
-  }
-
-  return dbUser;
-}
 
 async function fetchProjectMembers(projectId: string) {
   if (!projectId) {
@@ -96,14 +74,16 @@ export function useUpdateMemberRole() {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const supabase = getSupabaseClient() as any;
+      const response = await fetch(`/api/projects/${projectId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId, role }),
+      });
 
-      const { error } = await supabase
-        .from("project_members")
-        .update({ role })
-        .eq("id", memberId);
-
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update role");
+      }
     },
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({

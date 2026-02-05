@@ -1,6 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase/client-singleton";
+import { DEFAULT_ROLES } from "@/lib/roles";
+
+const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
+const DEFAULT_ROLE_MAP = new Map(
+  DEFAULT_ROLES.map((role) => [role.id, role.permissions]),
+);
+
+async function getMemberRole(
+  projectId: string,
+  userId: string,
+  supabase = getSupabaseClient(),
+) {
+  const { data } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .single();
+
+  return (data as any)?.role as string | undefined;
+}
+
+async function getRolePermissions(
+  projectId: string,
+  role: string,
+  supabase = getSupabaseClient(),
+) {
+  if (DEFAULT_ROLE_MAP.has(role)) {
+    return DEFAULT_ROLE_MAP.get(role) || [];
+  }
+
+  const { data } = await supabase
+    .from("project_roles")
+    .select("permissions")
+    .eq("project_id", projectId)
+    .eq("name", role)
+    .single();
+
+  return ((data as any)?.permissions as string[]) || [];
+}
+
+async function canManageRoles(
+  projectId: string,
+  userId: string,
+  supabase = getSupabaseClient(),
+) {
+  const role = await getMemberRole(projectId, userId, supabase);
+
+  if (!role) return false;
+  if (role === "admin") return true;
+
+  const permissions = await getRolePermissions(projectId, role, supabase);
+  return permissions.includes("members.roles");
+}
+
+async function isRoleValid(
+  projectId: string,
+  role: string,
+  supabase = getSupabaseClient(),
+) {
+  if (!role) return false;
+  if (SYSTEM_ROLE_IDS.has(role)) return true;
+
+  const { data } = await supabase
+    .from("project_roles")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("name", role)
+    .maybeSingle();
+
+  return !!data;
+}
 
 export async function GET(
   request: NextRequest,
@@ -104,6 +176,89 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching project members:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { projectId } = await params;
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "projectId is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { memberId, role } = body;
+
+    if (!memberId || !role) {
+      return NextResponse.json(
+        { error: "memberId and role are required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseClient();
+
+    const { data: dbUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: "Failed to get user" },
+        { status: 500 }
+      );
+    }
+
+    const canManage = await canManageRoles(projectId, (dbUser as any).id, supabase);
+
+    if (!canManage) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const validRole = await isRoleValid(projectId, role, supabase);
+
+    if (!validRole) {
+      return NextResponse.json(
+        { error: "Invalid role" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await (supabase as any)
+      .from("project_members")
+      .update({ role })
+      .eq("id", memberId)
+      .eq("project_id", projectId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to update member role" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error updating member role:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

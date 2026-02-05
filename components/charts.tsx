@@ -17,10 +17,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  TooltipProps,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 // Color palette for charts
 const CHART_COLORS = {
@@ -141,9 +139,15 @@ export function LineChartCard({
               dataKey={xAxisKey}
               className="text-xs"
               stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "hsl(var(--foreground))" }}
             />
-            <YAxis className="text-xs" stroke="hsl(var(--muted-foreground))" />
+            <YAxis
+              className="text-xs"
+              stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "hsl(var(--foreground))" }}
+            />
             <Tooltip
+              cursor={{ fill: "transparent" }}
               content={
                 <CustomTooltip
                   labelFormatter={labelFormatter}
@@ -151,7 +155,9 @@ export function LineChartCard({
                 />
               }
             />
-            {showLegend && <Legend />}
+            {showLegend && (
+              <Legend wrapperStyle={{ color: "hsl(var(--foreground))" }} />
+            )}
             {dataKeys.map((item, index) => (
               <Line
                 key={item.key}
@@ -216,18 +222,26 @@ export function BarChartCard({
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="text-foreground">
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={data}>
             {showGrid && (
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                className="stroke-muted-foreground/50 dark:stroke-muted-foreground/40"
+              />
             )}
             <XAxis
               dataKey={xAxisKey}
               className="text-xs"
               stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "currentColor" }}
             />
-            <YAxis className="text-xs" stroke="hsl(var(--muted-foreground))" />
+            <YAxis
+              className="text-xs"
+              stroke="hsl(var(--muted-foreground))"
+              tick={{ fill: "currentColor" }}
+            />
             <Tooltip
               content={
                 <CustomTooltip
@@ -236,7 +250,9 @@ export function BarChartCard({
                 />
               }
             />
-            {showLegend && <Legend />}
+            {showLegend && (
+              <Legend wrapperStyle={{ color: "currentColor" }} />
+            )}
             {dataKeys.map((item, index) => (
               <Bar
                 key={item.key}

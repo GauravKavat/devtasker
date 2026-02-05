@@ -327,6 +327,28 @@ export type Database = {
           google_calendar_event_id?: string | null;
         };
       };
+      project_roles: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          permissions: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          permissions?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          permissions?: string[];
+        };
+      };
     };
   };
 };
@@ -346,6 +368,8 @@ export type ProjectMember =
   Database["public"]["Tables"]["project_members"]["Row"];
 export type ProjectInvitation =
   Database["public"]["Tables"]["project_invitations"]["Row"];
+export type ProjectRole =
+  Database["public"]["Tables"]["project_roles"]["Row"];
 
 export type TaskWithAssignee = Task & {
   assignee: User | null;

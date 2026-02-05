@@ -7,7 +7,9 @@ import {
   useRemoveMember,
 } from "@/hooks/use-project-members";
 import { useProjectRole } from "@/hooks/use-project-role";
+import { useProjectRoles } from "@/hooks/use-project-roles";
 import { useUser } from "@clerk/nextjs";
+import { DEFAULT_ROLES } from "@/lib/roles";
 import { Loader2, Mail, UserCircle, Trash2, Plus, Send } from "lucide-react";
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import {
@@ -45,6 +47,8 @@ export default function Teams({ projectId }: TeamsProps) {
     projectId || "",
   );
   const { isAdmin, loading: roleLoading } = useProjectRole(projectId || "");
+  const { roles, loading: rolesLoading } = useProjectRoles(projectId || "");
+  const roleOptions = roles.length > 0 ? roles : DEFAULT_ROLES;
   const updateMemberRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
 
@@ -81,6 +85,9 @@ export default function Teams({ projectId }: TeamsProps) {
   };
 
   const loading = membersLoading || roleLoading;
+  const roleLabelMap = new Map(
+    roleOptions.map((role) => [role.id, role.name]),
+  );
 
   // Debug logging
   console.log("Team Component Debug:", {
@@ -206,24 +213,26 @@ export default function Teams({ projectId }: TeamsProps) {
                               onValueChange={(value) =>
                                 handleRoleChange(member.id, value)
                               }
-                              disabled={updatingRole === member.id}
+                              disabled={updatingRole === member.id || rolesLoading}
                             >
                               <SelectTrigger className="w-[130px]">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="admin">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full bg-purple-500" />
-                                    Admin
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="member">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                    Member
-                                  </div>
-                                </SelectItem>
+                                {roleOptions.map((roleItem) => (
+                                  <SelectItem key={roleItem.id} value={roleItem.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className={
+                                          roleItem.id === "admin"
+                                            ? "h-2 w-2 rounded-full bg-purple-500"
+                                            : "h-2 w-2 rounded-full bg-blue-500"
+                                        }
+                                      />
+                                      {roleItem.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           ) : (
@@ -239,11 +248,13 @@ export default function Teams({ projectId }: TeamsProps) {
                                   <div className="h-2 w-2 rounded-full bg-purple-300" />
                                   Admin
                                 </div>
-                              ) : (
+                              ) : member.role === "member" ? (
                                 <div className="flex items-center gap-1">
                                   <div className="h-2 w-2 rounded-full bg-blue-300" />
                                   Member
                                 </div>
+                              ) : (
+                                <span>{roleLabelMap.get(member.role) || member.role}</span>
                               )}
                             </Badge>
                           )}

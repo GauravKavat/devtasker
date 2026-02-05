@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Recharts focus outline (click border) removal */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible {
+    outline: none;
+}
+
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
