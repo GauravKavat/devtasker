@@ -4,10 +4,10 @@ import GetStarted from "@/app/(home)/_components/getStarted";
 
 export default function Home() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <Navbar />
       <HeroSection />
       <GetStarted />
-    </>
+    </div>
   );
 }
