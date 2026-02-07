@@ -4,6 +4,25 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import crypto from "crypto";
 
+const DEFAULT_EVENTS = ["issues", "pull_request", "push"];
+
+function getWebhookUrl() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return `${appUrl}/api/github/webhook`;
+}
+
+function getGitHubHeaders() {
+  if (!process.env.GITHUB_TOKEN) {
+    throw new Error("GitHub token not configured");
+  }
+
+  return {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "DevTasker",
+    Authorization: `token ${process.env.GITHUB_TOKEN}`,
+  } as HeadersInit;
+}
+
 function verifySignature(
   payload: string,
   signature: string,
@@ -192,6 +211,158 @@ export async function POST(request: NextRequest) {
     console.error("Webhook error:", error);
     return NextResponse.json(
       { error: "Webhook processing failed" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId");
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const { data: webhooks, error } = await supabase
+      .from("github_webhooks")
+      .select("*")
+      .eq("project_id", projectId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ webhooks });
+  } catch (error) {
+    console.error("Error fetching webhooks:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch webhooks" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { projectId, repoOwner, repoName, webhookUrl, events } =
+      await request.json();
+
+    if (!projectId || !repoOwner || !repoName) {
+      return NextResponse.json(
+        { error: "Project ID, repository owner, and name are required" },
+        { status: 400 },
+      );
+    }
+
+    const headers = getGitHubHeaders();
+    const secret = process.env.GITHUB_WEBHOOK_SECRET || crypto.randomBytes(32).toString("hex");
+    const targetUrl = webhookUrl || getWebhookUrl();
+    const eventList = Array.isArray(events) && events.length > 0 ? events : DEFAULT_EVENTS;
+
+    const response = await fetch(
+      `https://api.github.com/repos/${repoOwner}/${repoName}/hooks`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name: "web",
+          active: true,
+          events: eventList,
+          config: {
+            url: targetUrl,
+            content_type: "json",
+            secret,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.message || "Failed to create webhook" },
+        { status: response.status },
+      );
+    }
+
+    const webhookData = await response.json();
+
+    const { data, error } = await supabase
+      .from("github_webhooks")
+      .insert({
+        project_id: projectId,
+        webhook_id: String(webhookData.id),
+        webhook_url: targetUrl,
+        secret,
+        active: true,
+      } as any)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ webhook: data });
+  } catch (error) {
+    console.error("Error creating webhook:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to create webhook" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId");
+    const repoOwner = searchParams.get("repoOwner");
+    const repoName = searchParams.get("repoName");
+    const webhookId = searchParams.get("webhookId");
+
+    if (!projectId || !repoOwner || !repoName || !webhookId) {
+      return NextResponse.json(
+        { error: "Project ID, repository owner, name, and webhook ID are required" },
+        { status: 400 },
+      );
+    }
+
+    const headers = getGitHubHeaders();
+
+    const response = await fetch(
+      `https://api.github.com/repos/${repoOwner}/${repoName}/hooks/${webhookId}`,
+      {
+        method: "DELETE",
+        headers,
+      },
+    );
+
+    if (!response.ok && response.status !== 404) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.message || "Failed to delete webhook" },
+        { status: response.status },
+      );
+    }
+
+    const { error } = await supabase
+      .from("github_webhooks")
+      .delete()
+      .eq("project_id", projectId)
+      .eq("webhook_id", webhookId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting webhook:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to delete webhook" },
       { status: 500 },
     );
   }
