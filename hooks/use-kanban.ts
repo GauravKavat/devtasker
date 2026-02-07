@@ -127,31 +127,22 @@ export function useCreateTask() {
       columnId: string;
       task: Partial<Task>;
     }) => {
-      const supabase = getSupabaseClient();
-
-      // Get the next position
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("position")
-        .eq("column_id", columnId)
-        .order("position", { ascending: false })
-        .limit(1);
-
-      const nextPosition =
-        tasks && tasks.length > 0 ? (tasks[0] as any).position + 1 : 0;
-
-      const { data, error } = await supabase
-        .from("tasks")
-        .insert({
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          columnId,
           ...task,
-          column_id: columnId,
-          position: nextPosition,
-        } as any)
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) throw error;
-      return data as Task;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create task");
+      }
+
+      const data = await response.json();
+      return data.task as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kanban"] });
@@ -176,18 +167,19 @@ export function useUpdateTask() {
       taskId: string;
       updates: Partial<Task>;
     }) => {
-      const supabase = getSupabaseClient();
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
 
-      const { data, error } = await supabase
-        .from("tasks")
-        // @ts-expect-error - Supabase type inference issue with Database schema
-        .update(updates as any)
-        .eq("id", taskId)
-        .select()
-        .single();
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update task");
+      }
 
-      if (error) throw error;
-      return data as Task;
+      const data = await response.json();
+      return data.task as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kanban"] });
@@ -206,9 +198,14 @@ export function useDeleteTask() {
 
   const mutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-      if (error) throw error;
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete task");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kanban"] });
@@ -240,23 +237,22 @@ export function useMoveTask() {
         newPosition,
       });
 
-      const supabase = getSupabaseClient();
-
-      const { data, error } = await supabase
-        .from("tasks")
-        // @ts-expect-error - Supabase type inference issue with Database schema
-        .update({
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           column_id: newColumnId,
           position: newPosition,
-        } as any)
-        .eq("id", taskId)
-        .select();
+        }),
+      });
 
-      if (error) {
-        console.error("useMoveTask error:", error);
-        throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        console.error("useMoveTask error:", data);
+        throw new Error(data.error || "Failed to move task");
       }
 
+      const data = await response.json();
       console.log("useMoveTask success:", data);
       return data;
     },
@@ -280,4 +276,102 @@ export function useMoveTask() {
     },
     [mutation],
   );
+}
+
+export function useCreateColumn() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({
+      projectId,
+      name,
+      color,
+    }: {
+      projectId: string;
+      name: string;
+      color?: string | null;
+    }) => {
+      const response = await fetch("/api/columns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, name, color }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create column");
+      }
+
+      const data = await response.json();
+      return data.column as Column;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kanban"] });
+    },
+  });
+
+  return useCallback(
+    (projectId: string, name: string, color?: string | null) =>
+      mutation.mutateAsync({ projectId, name, color }),
+    [mutation],
+  );
+}
+
+export function useUpdateColumn() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({
+      columnId,
+      updates,
+    }: {
+      columnId: string;
+      updates: Partial<Column>;
+    }) => {
+      const response = await fetch(`/api/columns/${columnId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update column");
+      }
+
+      const data = await response.json();
+      return data.column as Column;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kanban"] });
+    },
+  });
+
+  return useCallback(
+    (columnId: string, updates: Partial<Column>) =>
+      mutation.mutateAsync({ columnId, updates }),
+    [mutation],
+  );
+}
+
+export function useDeleteColumn() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (columnId: string) => {
+      const response = await fetch(`/api/columns/${columnId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete column");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kanban"] });
+    },
+  });
+
+  return useCallback((columnId: string) => mutation.mutateAsync(columnId), [mutation]);
 }

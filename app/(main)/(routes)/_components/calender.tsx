@@ -5,6 +5,7 @@ import { useProjects } from "@/hooks/use-projects";
 import {
   useMeetings,
   useCreateMeeting,
+  useUpdateMeeting,
   useDeleteMeeting,
 } from "@/hooks/use-meetings";
 import {
@@ -73,6 +74,7 @@ export default function Calendar({ projectId }: CalendarProps) {
     refetch,
   } = useMeetings(projectId);
   const createMeeting = useCreateMeeting();
+  const updateMeeting = useUpdateMeeting();
   const deleteMeeting = useDeleteMeeting();
   const { user } = useUser();
   const { theme } = useTheme();
@@ -81,6 +83,7 @@ export default function Calendar({ projectId }: CalendarProps) {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
@@ -91,6 +94,16 @@ export default function Calendar({ projectId }: CalendarProps) {
   );
 
   const [formData, setFormData] = useState<MeetingFormData>({
+    title: "",
+    description: "",
+    startDate: undefined,
+    startTime: "09:00",
+    endDate: undefined,
+    endTime: "10:00",
+    attendees: "",
+  });
+
+  const [editFormData, setEditFormData] = useState<MeetingFormData>({
     title: "",
     description: "",
     startDate: undefined,
@@ -155,6 +168,66 @@ export default function Calendar({ projectId }: CalendarProps) {
     if (meeting) {
       setSelectedMeeting(meeting);
       setIsViewDialogOpen(true);
+    }
+  };
+
+  const handleOpenEdit = () => {
+    if (!selectedMeeting) return;
+    const startDate = new Date(selectedMeeting.start_time);
+    const endDate = selectedMeeting.end_time
+      ? new Date(selectedMeeting.end_time)
+      : new Date(selectedMeeting.start_time);
+
+    setEditFormData({
+      title: selectedMeeting.title || "",
+      description: selectedMeeting.description || "",
+      startDate,
+      startTime: format(startDate, "HH:mm"),
+      endDate,
+      endTime: format(endDate, "HH:mm"),
+      attendees: (selectedMeeting.attendees || []).join(", "),
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateMeeting = async () => {
+    if (!selectedMeeting || !editFormData.startDate || !editFormData.endDate) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const [startHour, startMinute] = editFormData.startTime.split(":");
+      const startDateTime = new Date(editFormData.startDate);
+      startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0, 0);
+
+      const [endHour, endMinute] = editFormData.endTime.split(":");
+      const endDateTime = new Date(editFormData.endDate);
+      endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0);
+
+      const attendeesList = editFormData.attendees
+        .split(",")
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
+
+      await updateMeeting(selectedMeeting.id, {
+        title: editFormData.title,
+        description: editFormData.description || null,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        attendees: attendeesList.length > 0 ? attendeesList : null,
+      } as any);
+
+      setIsEditDialogOpen(false);
+      setIsViewDialogOpen(false);
+      setSelectedMeeting(null);
+      refetch();
+    } catch (error) {
+      console.error("Error updating meeting:", error);
+      alert("Failed to update meeting");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -628,6 +701,9 @@ export default function Calendar({ projectId }: CalendarProps) {
               )}
           </div>
           <DialogFooter>
+            <Button variant="outline" onClick={handleOpenEdit}>
+              Edit
+            </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteMeeting}
@@ -643,6 +719,139 @@ export default function Calendar({ projectId }: CalendarProps) {
               onClick={() => setIsViewDialogOpen(false)}
             >
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Meeting</DialogTitle>
+            <DialogDescription>Update meeting details below.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, title: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    description: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editFormData.startDate
+                      ? format(editFormData.startDate, "PPP")
+                      : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={editFormData.startDate}
+                    onSelect={(date) =>
+                      setEditFormData({ ...editFormData, startDate: date })
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid gap-2">
+              <Label>Start Time</Label>
+              <Input
+                type="time"
+                value={editFormData.startTime}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    startTime: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editFormData.endDate
+                      ? format(editFormData.endDate, "PPP")
+                      : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={editFormData.endDate}
+                    onSelect={(date) =>
+                      setEditFormData({ ...editFormData, endDate: date })
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid gap-2">
+              <Label>End Time</Label>
+              <Input
+                type="time"
+                value={editFormData.endTime}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, endTime: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Attendees (comma-separated)</Label>
+              <Input
+                value={editFormData.attendees}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    attendees: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateMeeting}
+              disabled={!editFormData.title || !editFormData.startDate || !editFormData.endDate || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

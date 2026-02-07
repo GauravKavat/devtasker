@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client-singleton";
-import { useUser } from "@clerk/nextjs";
 
 export interface Meeting {
   id: string;
@@ -20,7 +19,6 @@ export interface Meeting {
 export function useMeetings(projectId?: string) {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useUser();
 
   useEffect(() => {
     if (!projectId) {
@@ -59,16 +57,15 @@ export function useMeetings(projectId?: string) {
 
     try {
       setLoading(true);
-      const supabase = getSupabaseClient();
+      const response = await fetch(`/api/meetings?projectId=${projectId}`);
 
-      const { data, error } = await supabase
-        .from("meetings")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("start_time", { ascending: true });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to fetch meetings");
+      }
 
-      if (error) throw error;
-      setMeetings((data as any) || []);
+      const data = await response.json();
+      setMeetings((data.meetings as any) || []);
     } catch (err) {
       console.error("Error fetching meetings:", err);
     } finally {
@@ -90,50 +87,49 @@ export function useCreateMeeting() {
     attendees?: string[] | null;
     google_calendar_event_id?: string | null;
   }) => {
-    const supabase = getSupabaseClient();
+    const response = await fetch("/api/meetings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(meetingData),
+    });
 
-    // @ts-ignore - meetings table types
-    const { data, error } = await supabase
-      .from("meetings")
-      // @ts-ignore
-      .insert(meetingData)
-      .select()
-      .single();
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to create meeting");
+    }
 
-    if (error) throw error;
-    return data as Meeting;
+    const data = await response.json();
+    return data.meeting as Meeting;
   };
 }
 
 export function useUpdateMeeting() {
   return async (id: string, updates: Partial<Meeting>) => {
-    const supabase = getSupabaseClient();
+    const response = await fetch(`/api/meetings/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
 
-    // @ts-ignore - meetings table types
-    const { data, error } = await supabase
-      .from("meetings")
-      // @ts-ignore
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to update meeting");
+    }
 
-    if (error) throw error;
-    return data as Meeting;
+    const data = await response.json();
+    return data.meeting as Meeting;
   };
 }
 
 export function useDeleteMeeting() {
   return async (id: string) => {
-    const supabase = getSupabaseClient();
+    const response = await fetch(`/api/meetings/${id}`, {
+      method: "DELETE",
+    });
 
-    // @ts-ignore - meetings table types
-    const { error } = await supabase
-      .from("meetings")
-      // @ts-ignore
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to delete meeting");
+    }
   };
 }

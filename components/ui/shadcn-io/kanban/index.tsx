@@ -34,6 +34,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 const t = tunnel();
+const COLUMN_PREFIX = 'column:';
 
 export type { DragEndEvent } from '@dnd-kit/core';
 
@@ -43,14 +44,14 @@ type KanbanItemProps = {
   column: string;
 } & Record<string, unknown>;
 
-type KanbanColumnProps = {
+type KanbanColumnData = {
   id: string;
   name: string;
 } & Record<string, unknown>;
 
 type KanbanContextProps<
   T extends KanbanItemProps = KanbanItemProps,
-  C extends KanbanColumnProps = KanbanColumnProps,
+  C extends KanbanColumnData = KanbanColumnData,
 > = {
   columns: C[];
   data: T[];
@@ -62,6 +63,16 @@ const KanbanContext = createContext<KanbanContextProps>({
   data: [],
   activeCardId: null,
 });
+
+type KanbanColumnDragContextValue = {
+  attributes?: Record<string, unknown>;
+  listeners?: Record<string, unknown>;
+  isDragging?: boolean;
+} | null;
+
+const KanbanColumnDragContext = createContext<KanbanColumnDragContextValue>(
+  null
+);
 
 export type KanbanBoardProps = {
   id: string;
@@ -85,6 +96,44 @@ export const KanbanBoard = ({ id, children, className }: KanbanBoardProps) => {
     >
       {children}
     </div>
+  );
+};
+
+export type KanbanColumnProps = {
+  id: string;
+  children: ReactNode;
+  className?: string;
+};
+
+export const KanbanColumn = ({ id, children, className }: KanbanColumnProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transition,
+    transform,
+    isDragging,
+  } = useSortable({
+    id: `${COLUMN_PREFIX}${id}`,
+  });
+
+  const style = {
+    transition,
+    transform: CSS.Transform.toString(transform),
+  };
+
+  return (
+    <KanbanColumnDragContext.Provider
+      value={{ attributes, listeners, isDragging }}
+    >
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(isDragging && 'opacity-60', className)}
+      >
+        {children}
+      </div>
+    </KanbanColumnDragContext.Provider>
   );
 };
 
@@ -178,19 +227,32 @@ export const KanbanCards = <T extends KanbanItemProps = KanbanItemProps>({
 
 export type KanbanHeaderProps = HTMLAttributes<HTMLDivElement>;
 
-export const KanbanHeader = ({ className, ...props }: KanbanHeaderProps) => (
-  <div className={cn('m-0 p-2 font-semibold text-sm', className)} {...props} />
-);
+export const KanbanHeader = ({ className, ...props }: KanbanHeaderProps) => {
+  const dragContext = useContext(KanbanColumnDragContext);
+  return (
+    <div
+      className={cn(
+        'm-0 p-2 font-semibold text-sm',
+        dragContext ? 'cursor-grab' : '',
+        className
+      )}
+      {...(dragContext?.attributes ?? {})}
+      {...(dragContext?.listeners ?? {})}
+      {...props}
+    />
+  );
+};
 
 export type KanbanProviderProps<
   T extends KanbanItemProps = KanbanItemProps,
-  C extends KanbanColumnProps = KanbanColumnProps,
+  C extends KanbanColumnData = KanbanColumnData,
 > = Omit<DndContextProps, 'children'> & {
   children: (column: C) => ReactNode;
   className?: string;
   columns: C[];
   data: T[];
   onDataChange?: (data: T[]) => void;
+  onColumnsChange?: (columns: C[]) => void;
   onDragStart?: (event: DragStartEvent) => void;
   onDragEnd?: (event: DragEndEvent) => void;
   onDragOver?: (event: DragOverEvent) => void;
@@ -198,7 +260,7 @@ export type KanbanProviderProps<
 
 export const KanbanProvider = <
   T extends KanbanItemProps = KanbanItemProps,
-  C extends KanbanColumnProps = KanbanColumnProps,
+  C extends KanbanColumnData = KanbanColumnData,
 >({
   children,
   onDragStart,
@@ -208,9 +270,15 @@ export const KanbanProvider = <
   columns,
   data,
   onDataChange,
+  onColumnsChange,
   ...props
 }: KanbanProviderProps<T, C>) => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+
+  const isColumnDrag = (id: unknown) =>
+    typeof id === 'string' && id.startsWith(COLUMN_PREFIX);
+
+  const stripColumnPrefix = (id: string) => id.replace(COLUMN_PREFIX, '');
 
   const sensors = useSensors(
     useSensor(MouseSensor),
@@ -219,6 +287,11 @@ export const KanbanProvider = <
   );
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (isColumnDrag(event.active.id)) {
+      setActiveCardId(null);
+      onDragStart?.(event);
+      return;
+    }
     const card = data.find((item) => item.id === event.active.id);
     if (card) {
       setActiveCardId(event.active.id as string);
@@ -230,6 +303,10 @@ export const KanbanProvider = <
     const { active, over } = event;
 
     if (!over) {
+      return;
+    }
+
+    if (isColumnDrag(active.id)) {
       return;
     }
 
@@ -271,6 +348,23 @@ export const KanbanProvider = <
       return;
     }
 
+    if (isColumnDrag(active.id)) {
+      if (!isColumnDrag(over.id)) {
+        return;
+      }
+
+      const activeId = stripColumnPrefix(active.id as string);
+      const overId = stripColumnPrefix(over.id as string);
+      const oldIndex = columns.findIndex((column) => column.id === activeId);
+      const newIndex = columns.findIndex((column) => column.id === overId);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const newColumns = arrayMove(columns, oldIndex, newIndex);
+        onColumnsChange?.(newColumns);
+      }
+      return;
+    }
+
     let newData = [...data];
 
     const oldIndex = newData.findIndex((item) => item.id === active.id);
@@ -283,17 +377,38 @@ export const KanbanProvider = <
 
   const announcements: Announcements = {
     onDragStart({ active }) {
+      if (isColumnDrag(active.id)) {
+        const columnId = stripColumnPrefix(active.id as string);
+        const column = columns.find((item) => item.id === columnId);
+        return `Picked up the column "${column?.name}"`;
+      }
       const { name, column } = data.find((item) => item.id === active.id) ?? {};
 
       return `Picked up the card "${name}" from the "${column}" column`;
     },
     onDragOver({ active, over }) {
+      if (isColumnDrag(active.id)) {
+        const columnId = stripColumnPrefix(active.id as string);
+        const column = columns.find((item) => item.id === columnId);
+        const newColumn = columns.find(
+          (item) => item.id === stripColumnPrefix(over?.id as string)
+        );
+        return `Dragged the column "${column?.name}" over "${newColumn?.name}"`;
+      }
       const { name } = data.find((item) => item.id === active.id) ?? {};
       const newColumn = columns.find((column) => column.id === over?.id)?.name;
 
       return `Dragged the card "${name}" over the "${newColumn}" column`;
     },
     onDragEnd({ active, over }) {
+      if (isColumnDrag(active.id)) {
+        const columnId = stripColumnPrefix(active.id as string);
+        const column = columns.find((item) => item.id === columnId);
+        const newColumn = columns.find(
+          (item) => item.id === stripColumnPrefix(over?.id as string)
+        );
+        return `Dropped the column "${column?.name}" into position near "${newColumn?.name}"`;
+      }
       const { name } = data.find((item) => item.id === active.id) ?? {};
       const newColumn = columns.find((column) => column.id === over?.id)?.name;
 
@@ -317,14 +432,20 @@ export const KanbanProvider = <
         sensors={sensors}
         {...props}
       >
-        <div
-          className={cn(
-            'grid size-full auto-cols-fr grid-flow-col gap-4',
-            className
-          )}
-        >
-          {columns.map((column) => children(column))}
-        </div>
+        <SortableContext items={columns.map((column) => `${COLUMN_PREFIX}${column.id}`)}>
+          <div
+            className={cn(
+              'grid size-full auto-cols-fr grid-flow-col gap-4',
+              className
+            )}
+          >
+            {columns.map((column) => (
+              <KanbanColumn id={column.id} key={column.id}>
+                {children(column)}
+              </KanbanColumn>
+            ))}
+          </div>
+        </SortableContext>
         {typeof window !== 'undefined' &&
           createPortal(
             <DragOverlay>

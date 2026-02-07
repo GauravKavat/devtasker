@@ -5,6 +5,7 @@ import {
   useTaskGitHubLinks,
   useLinkTaskToGitHub,
   useDeleteTaskGitHubLink,
+  useTaskCommits,
 } from "@/hooks/use-github";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ export function TaskGitHubLinks({
   const [githubUrl, setGithubUrl] = useState("");
 
   const { data: links, isLoading } = useTaskGitHubLinks(taskId);
+  const { data: commits } = useTaskCommits(taskId);
   const linkMutation = useLinkTaskToGitHub();
   const deleteMutation = useDeleteTaskGitHubLink();
 
@@ -169,6 +171,8 @@ export function TaskGitHubLinks({
     );
   }
 
+  const recentCommits = (commits || []).slice(0, 3);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -265,6 +269,26 @@ export function TaskGitHubLinks({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">No GitHub links yet</p>
+      )}
+
+      {recentCommits.length > 0 && (
+        <div className="space-y-1 pt-2 border-t">
+          <p className="text-xs font-medium text-muted-foreground">Recent commits</p>
+          {recentCommits.map((commit) => (
+            <a
+              key={commit.id}
+              href={commit.commit_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-2"
+            >
+              <span className="font-mono">
+                {commit.commit_sha.substring(0, 7)}
+              </span>
+              <span className="truncate max-w-[320px]">{commit.commit_message}</span>
+            </a>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -98,6 +98,8 @@ export type Database = {
         Row: {
           id: string;
           project_id: string;
+          repo_owner: string | null;
+          repo_name: string | null;
           webhook_id: string;
           webhook_url: string;
           secret: string;
@@ -107,6 +109,8 @@ export type Database = {
         Insert: {
           id?: string;
           project_id: string;
+          repo_owner?: string | null;
+          repo_name?: string | null;
           webhook_id: string;
           webhook_url: string;
           secret: string;
@@ -116,6 +120,8 @@ export type Database = {
         Update: {
           id?: string;
           project_id?: string;
+          repo_owner?: string | null;
+          repo_name?: string | null;
           webhook_id?: string;
           webhook_url?: string;
           secret?: string;

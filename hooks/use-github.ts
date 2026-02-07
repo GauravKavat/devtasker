@@ -87,6 +87,20 @@ export function useTaskGitHubLinks(taskId: string | undefined) {
   });
 }
 
+export function useTaskCommits(taskId: string | undefined) {
+  return useQuery({
+    queryKey: ["task-commits", taskId],
+    queryFn: async () => {
+      if (!taskId) return [];
+      const res = await fetch(`/api/tasks/${taskId}/commits`);
+      if (!res.ok) throw new Error("Failed to fetch commits");
+      const data = await res.json();
+      return data.commits as { id: string; commit_sha: string; commit_message: string; commit_url: string; author: string; committed_at: string }[];
+    },
+    enabled: !!taskId,
+  });
+}
+
 export function useLinkTaskToGitHub() {
   const queryClient = useQueryClient();
 
@@ -218,6 +232,90 @@ export function useGitHubActions(
     },
     enabled: !!repoOwner && !!repoName && !!projectId,
     refetchInterval: 30000, // Refetch every 30 seconds
+  });
+}
+
+export function useGitHubWebhooks(
+  projectId: string | undefined,
+  repoOwner?: string,
+  repoName?: string,
+) {
+  return useQuery({
+    queryKey: ["github-webhooks", projectId, repoOwner, repoName],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const params = new URLSearchParams({ projectId });
+      if (repoOwner && repoName) {
+        params.set("repoOwner", repoOwner);
+        params.set("repoName", repoName);
+      }
+      const res = await fetch(`/api/github/webhook?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch webhooks");
+      const data = await res.json();
+      return data.webhooks as { id: string; webhook_id: string; webhook_url: string; active: boolean }[];
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateWebhook() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      repoOwner,
+      repoName,
+    }: {
+      projectId: string;
+      repoOwner: string;
+      repoName: string;
+    }) => {
+      const res = await fetch("/api/github/webhook", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, repoOwner, repoName }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create webhook");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["github-webhooks", variables.projectId] });
+    },
+  });
+}
+
+export function useDeleteWebhook() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      repoOwner,
+      repoName,
+      webhookId,
+    }: {
+      projectId: string;
+      repoOwner: string;
+      repoName: string;
+      webhookId: string;
+    }) => {
+      const res = await fetch(
+        `/api/github/webhook?projectId=${projectId}&repoOwner=${repoOwner}&repoName=${repoName}&webhookId=${webhookId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to delete webhook");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["github-webhooks", variables.projectId] });
+    },
   });
 }
 

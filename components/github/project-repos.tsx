@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useGitHubIntegration } from "@/hooks/use-github";
+import {
+  useGitHubIntegration,
+  useGitHubWebhooks,
+  useCreateWebhook,
+  useDeleteWebhook,
+} from "@/hooks/use-github";
 import { useProjectRole } from "@/hooks/use-project-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,8 +47,17 @@ export function ProjectRepos({ projectId }: ProjectReposProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
+  const [webhookRepoId, setWebhookRepoId] = useState("");
   const { repos, isLoading, error, addRepo, deleteRepo } =
     useGitHubIntegration(projectId);
+  const selectedWebhookRepo = repos.find((repo) => repo.id === webhookRepoId);
+  const { data: webhooks } = useGitHubWebhooks(
+    projectId,
+    selectedWebhookRepo?.repo_owner,
+    selectedWebhookRepo?.repo_name,
+  );
+  const createWebhook = useCreateWebhook();
+  const deleteWebhook = useDeleteWebhook();
   const { isAdmin } = useProjectRole(projectId);
 
   const handleAddRepo = async (e: React.FormEvent) => {
@@ -66,6 +80,7 @@ export function ProjectRepos({ projectId }: ProjectReposProps) {
     await deleteRepo(repoToDelete);
     setRepoToDelete(null);
   };
+
 
   return (
     <Card>
@@ -197,6 +212,82 @@ export function ProjectRepos({ projectId }: ProjectReposProps) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {isAdmin && repos.length > 0 && (
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">GitHub Webhooks</h4>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={webhookRepoId}
+                onChange={(e) => setWebhookRepoId(e.target.value)}
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="">Choose repository...</option>
+                {repos.map((repo) => (
+                  <option key={repo.id} value={repo.id}>
+                    {repo.repo_owner}/{repo.repo_name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant="outline"
+                disabled={!selectedWebhookRepo || createWebhook.isPending}
+                onClick={() => {
+                  if (!selectedWebhookRepo) return;
+                  createWebhook.mutate({
+                    projectId,
+                    repoOwner: selectedWebhookRepo.repo_owner,
+                    repoName: selectedWebhookRepo.repo_name,
+                  });
+                }}
+              >
+                {createWebhook.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Create Webhook"
+                )}
+              </Button>
+            </div>
+
+            {selectedWebhookRepo ? (
+              webhooks && webhooks.length > 0 ? (
+                <div className="space-y-2">
+                  {webhooks.map((webhook) => (
+                    <div
+                      key={webhook.id}
+                      className="flex items-center justify-between p-2 border rounded-md"
+                    >
+                      <div className="text-xs text-muted-foreground break-all">
+                        {webhook.webhook_url}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={deleteWebhook.isPending}
+                        onClick={() => {
+                          deleteWebhook.mutate({
+                            projectId,
+                            repoOwner: selectedWebhookRepo.repo_owner,
+                            repoName: selectedWebhookRepo.repo_name,
+                            webhookId: webhook.webhook_id,
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No webhooks created yet.</p>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">Select a repository to view webhooks.</p>
+            )}
           </div>
         )}
       </CardContent>

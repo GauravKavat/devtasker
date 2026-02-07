@@ -8,9 +8,16 @@ import crypto from "crypto";
 
 const DEFAULT_EVENTS = ["issues", "pull_request", "push"];
 
-function getWebhookUrl() {
+function getWebhookUrl(repoOwner?: string, repoName?: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${appUrl}/api/github/webhook`;
+  const url = new URL(`${appUrl}/api/github/webhook`);
+
+  if (repoOwner && repoName) {
+    url.searchParams.set("repoOwner", repoOwner);
+    url.searchParams.set("repoName", repoName);
+  }
+
+  return url.toString();
 }
 
 function getGitHubHeaders() {
@@ -229,6 +236,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
+    const repoOwner = searchParams.get("repoOwner");
+    const repoName = searchParams.get("repoName");
 
     if (!projectId) {
       return NextResponse.json(
@@ -254,14 +263,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: webhooks, error } = await supabase
+    let query = supabase
       .from("github_webhooks")
       .select("*")
       .eq("project_id", projectId);
 
+    if (repoOwner && repoName) {
+      query = query.eq("repo_owner", repoOwner).eq("repo_name", repoName);
+    }
+
+    const { data: webhooks, error } = await query;
+
     if (error) throw error;
 
-    return NextResponse.json({ webhooks });
+    return NextResponse.json({ webhooks: webhooks || [] });
   } catch (error) {
     console.error("Error fetching webhooks:", error);
     return NextResponse.json(
@@ -321,7 +336,7 @@ export async function PUT(request: NextRequest) {
 
     const headers = getGitHubHeaders();
     const secret = process.env.GITHUB_WEBHOOK_SECRET || crypto.randomBytes(32).toString("hex");
-    const targetUrl = webhookUrl || getWebhookUrl();
+    const targetUrl = webhookUrl || getWebhookUrl(repoOwner, repoName);
     const eventList = Array.isArray(events) && events.length > 0 ? events : DEFAULT_EVENTS;
 
     const response = await fetch(
@@ -356,6 +371,8 @@ export async function PUT(request: NextRequest) {
       .from("github_webhooks")
       .insert({
         project_id: projectId,
+        repo_owner: repoOwner,
+        repo_name: repoName,
         webhook_id: String(webhookData.id),
         webhook_url: targetUrl,
         secret,

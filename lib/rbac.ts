@@ -120,3 +120,16 @@ export async function getProjectIdForTaskLink(
 
   return getProjectIdForTask(supabase, taskId);
 }
+
+export async function getProjectIdForColumn(
+  supabase: SupabaseLike,
+  columnId: string,
+) {
+  const { data } = await supabase
+    .from("columns")
+    .select("project_id")
+    .eq("id", columnId)
+    .single();
+
+  return (data as any)?.project_id as string | undefined;
+}

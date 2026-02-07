@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureUser, getProjectIdForTask, hasPermission } from "@/lib/rbac";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: { params: Promise<{ meetingId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -14,63 +14,66 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { taskId } = await params;
+    const { meetingId } = await params;
     const updates = await request.json();
 
     const supabase = await createClient();
-
     const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
     }
 
-    const projectId = await getProjectIdForTask(supabase as any, taskId);
+    const { data: meetingRow } = await supabase
+      .from("meetings")
+      .select("project_id")
+      .eq("id", meetingId)
+      .single();
+
+    const projectId = (meetingRow as any)?.project_id as string | undefined;
 
     if (!projectId) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
     }
 
     const canEdit = await hasPermission(
       supabase as any,
       projectId,
       (dbUser as any).id,
-      "tasks.edit",
+      "meetings.create",
     );
 
     if (!canEdit) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Update the task
-    const { data: task, error } = await (supabase
-      .from("tasks") as any)
-      .update(updates)
-      .eq("id", taskId)
+    const { data: meeting, error } = await (supabase
+      .from("meetings") as any)
+      .update(updates as any)
+      .eq("id", meetingId)
       .select()
       .single();
 
     if (error) {
-      console.error("Error updating task:", error);
       return NextResponse.json(
-        { error: "Failed to update task" },
-        { status: 500 }
+        { error: "Failed to update meeting" },
+        { status: 500 },
       );
     }
 
-    return NextResponse.json({ task });
+    return NextResponse.json({ meeting });
   } catch (error) {
-    console.error("Error in PATCH /api/tasks/[taskId]:", error);
+    console.error("Error updating meeting:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: { params: Promise<{ meetingId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -79,27 +82,32 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { taskId } = await params;
+    const { meetingId } = await params;
 
     const supabase = await createClient();
-
     const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
     }
 
-    const projectId = await getProjectIdForTask(supabase as any, taskId);
+    const { data: meetingRow } = await supabase
+      .from("meetings")
+      .select("project_id")
+      .eq("id", meetingId)
+      .single();
+
+    const projectId = (meetingRow as any)?.project_id as string | undefined;
 
     if (!projectId) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
     }
 
     const canDelete = await hasPermission(
       supabase as any,
       projectId,
       (dbUser as any).id,
-      "tasks.delete",
+      "meetings.delete",
     );
 
     if (!canDelete) {
@@ -107,23 +115,23 @@ export async function DELETE(
     }
 
     const { error } = await supabase
-      .from("tasks")
+      .from("meetings")
       .delete()
-      .eq("id", taskId);
+      .eq("id", meetingId);
 
     if (error) {
       return NextResponse.json(
-        { error: "Failed to delete task" },
-        { status: 500 }
+        { error: "Failed to delete meeting" },
+        { status: 500 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting task:", error);
+    console.error("Error deleting meeting:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
