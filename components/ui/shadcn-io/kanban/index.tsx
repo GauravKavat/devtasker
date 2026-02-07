@@ -6,6 +6,8 @@ import type {
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
+  DraggableAttributes,
+  DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   closestCenter,
@@ -65,8 +67,8 @@ const KanbanContext = createContext<KanbanContextProps>({
 });
 
 type KanbanColumnDragContextValue = {
-  attributes?: Record<string, unknown>;
-  listeners?: Record<string, unknown>;
+  attributes?: DraggableAttributes;
+  listeners?: DraggableSyntheticListeners;
   isDragging?: boolean;
 } | null;
 
