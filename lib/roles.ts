@@ -86,6 +86,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       "tasks.view",
       "tasks.create",
       "tasks.edit",
+      "members.view",
       "meetings.view",
       "meetings.create",
       "github.connect",

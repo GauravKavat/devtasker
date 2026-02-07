@@ -16,9 +16,29 @@ async function fetchProjectMembers(projectId: string) {
     const response = await fetch(`/api/projects/${projectId}/members`);
     
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("API Error:", errorData);
-      throw new Error(errorData.error || "Failed to fetch members");
+      let errorData: any = null;
+      let errorText = "";
+
+      try {
+        errorData = await response.json();
+      } catch (jsonError) {
+        try {
+          errorText = await response.text();
+        } catch (textError) {
+          errorText = "";
+        }
+      }
+
+      console.error("API Error:", errorData || errorText || {
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      throw new Error(
+        errorData?.error ||
+          errorText ||
+          `Failed to fetch members (HTTP ${response.status})`
+      );
     }
 
     const data = await response.json();
