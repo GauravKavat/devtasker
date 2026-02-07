@@ -70,6 +70,14 @@ export async function hasPermission(
   userId: string,
   permission: string,
 ) {
+  const { data: project } = await supabase
+    .from("projects")
+    .select("owner_id")
+    .eq("id", projectId)
+    .single();
+
+  if ((project as any)?.owner_id === userId) return true;
+
   const role = await getMemberRole(supabase, projectId, userId);
 
   if (!role) return false;
