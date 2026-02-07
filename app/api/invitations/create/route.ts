@@ -4,29 +4,9 @@ import { getSupabaseClient } from "@/lib/supabase/client-singleton";
 import { sendInvitationEmail } from "@/lib/email/send-invitation";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_ROLES } from "@/lib/roles";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
-
-async function ensureUser(clerkUserId: string) {
-  const supabase = getSupabaseClient();
-
-  let { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
-
-  if (!dbUser) {
-    const { data: newUser } = await supabase
-      .from("users")
-      .insert({ clerk_user_id: clerkUserId } as any)
-      .select("id")
-      .single();
-    dbUser = newUser;
-  }
-
-  return dbUser;
-}
 
 async function isRoleValid(
   projectId: string,
@@ -66,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseClient();
-    const dbUser = await ensureUser(userId);
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json(
@@ -75,17 +55,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is admin of the project
-    const { data: memberCheck } = await supabase
-      .from("project_members")
-      .select("role")
-      .eq("project_id", projectId)
-      .eq("user_id", (dbUser as any).id)
-      .single();
+    const canInvite = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "members.invite",
+    );
 
-    if (!memberCheck || (memberCheck as any).role !== "admin") {
+    if (!canInvite) {
       return NextResponse.json(
-        { error: "Only admins can invite members" },
+        { error: "Forbidden" },
         { status: 403 },
       );
     }

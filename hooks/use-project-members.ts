@@ -3,7 +3,6 @@
 import { useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSupabaseClient } from "@/lib/supabase/client-singleton";
 
 async function fetchProjectMembers(projectId: string) {
   if (!projectId) {
@@ -114,14 +113,17 @@ export function useRemoveMember() {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const supabase = getSupabaseClient() as any;
+      const response = await fetch(
+        `/api/projects/${projectId}/members?memberId=${memberId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
-      const { error } = await supabase
-        .from("project_members")
-        .delete()
-        .eq("id", memberId);
-
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to remove member");
+      }
     },
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({

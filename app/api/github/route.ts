@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@/lib/supabase/server";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 interface GitHubCommit {
   sha: string;
@@ -59,11 +62,17 @@ interface GitHubPullRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const { repoUrl, action } = await request.json();
+    const { userId } = await auth();
 
-    if (!repoUrl) {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { repoUrl, action, projectId } = await request.json();
+
+    if (!repoUrl || !projectId) {
       return NextResponse.json(
-        { error: "Repository URL is required" },
+        { error: "Project ID and repository URL are required" },
         { status: 400 },
       );
     }
@@ -82,6 +91,36 @@ export async function POST(request: NextRequest) {
 
     const [, owner, repo] = match;
     const baseUrl = `https://api.github.com/repos/${owner}/${repo}`;
+
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const canConnect = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "github.connect",
+    );
+
+    if (!canConnect) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { data: repoLink } = await supabase
+      .from("project_repos")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("repo_owner", owner)
+      .eq("repo_name", repo)
+      .maybeSingle();
+
+    if (!repoLink) {
+      return NextResponse.json({ error: "Repository not linked" }, { status: 403 });
+    }
 
     // Setup headers for GitHub API
     const headers: HeadersInit = {

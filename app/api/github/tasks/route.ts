@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUser, getProjectIdForTask, getProjectIdForTaskLink, hasPermission } from "@/lib/rbac";
 
 // Link a task to a GitHub issue/PR
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = await createClient();
     const { taskId, linkType, githubUrl, projectId } = await request.json();
 
@@ -12,6 +20,29 @@ export async function POST(request: NextRequest) {
         { error: "Task ID, link type, and GitHub URL are required" },
         { status: 400 },
       );
+    }
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const resolvedProjectId = await getProjectIdForTask(supabase as any, taskId);
+
+    if (!resolvedProjectId) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const canConnect = await hasPermission(
+      supabase as any,
+      resolvedProjectId,
+      (dbUser as any).id,
+      "github.connect",
+    );
+
+    if (!canConnect) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Parse GitHub URL to extract info
@@ -105,6 +136,12 @@ export async function POST(request: NextRequest) {
 // Get GitHub links for a task
 export async function GET(request: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId");
@@ -114,6 +151,29 @@ export async function GET(request: NextRequest) {
         { error: "Task ID is required" },
         { status: 400 },
       );
+    }
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const projectId = await getProjectIdForTask(supabase as any, taskId);
+
+    if (!projectId) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const canConnect = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "github.connect",
+    );
+
+    if (!canConnect) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { data: links, error } = await supabase
@@ -136,6 +196,12 @@ export async function GET(request: NextRequest) {
 // Delete a GitHub link
 export async function DELETE(request: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const linkId = searchParams.get("linkId");
@@ -145,6 +211,29 @@ export async function DELETE(request: NextRequest) {
         { error: "Link ID is required" },
         { status: 400 },
       );
+    }
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const projectId = await getProjectIdForTaskLink(supabase as any, linkId);
+
+    if (!projectId) {
+      return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    }
+
+    const canConnect = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "github.connect",
+    );
+
+    if (!canConnect) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { error } = await supabase

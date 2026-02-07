@@ -11,10 +11,11 @@ import { formatDistanceToNow } from "date-fns";
 interface GitHubActionsStatusProps {
   repoOwner: string;
   repoName: string;
+  projectId: string;
 }
 
-export function GitHubActionsStatus({ repoOwner, repoName }: GitHubActionsStatusProps) {
-  const { data, isLoading, error } = useGitHubActions(repoOwner, repoName);
+export function GitHubActionsStatus({ repoOwner, repoName, projectId }: GitHubActionsStatusProps) {
+  const { data, isLoading, error } = useGitHubActions(repoOwner, repoName, projectId);
 
   const getStatusIcon = (status: string, conclusion: string | null) => {
     if (status === "completed") {

@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = await createClient();
     const { projectId, columnId, repoOwner, repoName, issueNumbers } =
       await request.json();
@@ -14,6 +22,36 @@ export async function POST(request: NextRequest) {
             "Project ID, column ID, repository owner, and name are required",
         },
         { status: 400 },
+      );
+    }
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const canImport = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "github.import",
+    );
+
+    if (!canImport) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { data: column } = await supabase
+      .from("columns")
+      .select("id, project_id")
+      .eq("id", columnId)
+      .single();
+
+    if (!column || (column as any).project_id !== projectId) {
+      return NextResponse.json(
+        { error: "Column not found" },
+        { status: 404 },
       );
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUser, getProjectIdForTask, hasPermission } from "@/lib/rbac";
 
 export async function PATCH(
   request: NextRequest,
@@ -17,6 +18,29 @@ export async function PATCH(
     const updates = await request.json();
 
     const supabase = await createClient();
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const projectId = await getProjectIdForTask(supabase as any, taskId);
+
+    if (!projectId) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const canEdit = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "tasks.edit",
+    );
+
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Update the task
     const { data: task, error } = await (supabase

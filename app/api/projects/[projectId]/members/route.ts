@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase/client-singleton";
 import { DEFAULT_ROLES } from "@/lib/roles";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
 const DEFAULT_ROLE_MAP = new Map(
@@ -95,6 +96,23 @@ export async function GET(
     }
 
     const supabase = getSupabaseClient();
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const canView = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "members.view",
+    );
+
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // First, try to fetch members
     console.log("Fetching members for project:", projectId);
@@ -259,6 +277,77 @@ export async function PATCH(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating member role:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { projectId } = await params;
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "projectId is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseClient();
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const canRemove = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "members.remove",
+    );
+
+    if (!canRemove) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const memberId = searchParams.get("memberId");
+
+    if (!memberId) {
+      return NextResponse.json(
+        { error: "memberId is required" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("project_members")
+      .delete()
+      .eq("id", memberId)
+      .eq("project_id", projectId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to remove member" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error removing project member:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

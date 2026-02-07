@@ -199,16 +199,24 @@ export function useCreateBranch() {
   });
 }
 
-export function useGitHubActions(repoOwner: string | undefined, repoName: string | undefined) {
+export function useGitHubActions(
+  repoOwner: string | undefined,
+  repoName: string | undefined,
+  projectId: string | undefined,
+) {
   return useQuery({
-    queryKey: ["github-actions", repoOwner, repoName],
+    queryKey: ["github-actions", repoOwner, repoName, projectId],
     queryFn: async () => {
-      if (!repoOwner || !repoName) return { workflows: [], total_count: 0 };
-      const res = await fetch(`/api/github/actions?repoOwner=${repoOwner}&repoName=${repoName}`);
+      if (!repoOwner || !repoName || !projectId) {
+        return { workflows: [], total_count: 0 };
+      }
+      const res = await fetch(
+        `/api/github/actions?repoOwner=${repoOwner}&repoName=${repoName}&projectId=${projectId}`,
+      );
       if (!res.ok) throw new Error("Failed to fetch GitHub Actions");
       return res.json() as Promise<{ workflows: GitHubWorkflow[]; total_count: number }>;
     },
-    enabled: !!repoOwner && !!repoName,
+    enabled: !!repoOwner && !!repoName && !!projectId,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }

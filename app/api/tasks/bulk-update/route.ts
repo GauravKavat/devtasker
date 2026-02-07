@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -20,6 +21,38 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = await createClient();
+
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const taskIds = updates.map((update: any) => update.id).filter(Boolean);
+
+    const { data: taskRows } = await supabase
+      .from("tasks")
+      .select("id, columns(project_id)")
+      .in("id", taskIds);
+
+    const projectIds = new Set(
+      (taskRows || [])
+        .map((row: any) => row?.columns?.project_id)
+        .filter(Boolean),
+    );
+
+    for (const projectId of projectIds) {
+      const canEdit = await hasPermission(
+        supabase as any,
+        projectId,
+        (dbUser as any).id,
+        "tasks.edit",
+      );
+
+      if (!canEdit) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
 
     // Update tasks in bulk
     const updatePromises = updates.map(({ id, ...data }) =>

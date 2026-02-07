@@ -66,6 +66,11 @@ export default function Github({ projectId }: GithubProps) {
       return;
     }
 
+    if (!projectId) {
+      setError("Select a project before fetching GitHub data");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -78,6 +83,7 @@ export default function Github({ projectId }: GithubProps) {
         body: JSON.stringify({
           repoUrl: repoUrl.trim(),
           action: "all",
+          projectId,
         }),
       });
 
@@ -182,6 +188,7 @@ export default function Github({ projectId }: GithubProps) {
                 <GitHubActionsStatus
                   repoOwner={selectedRepoData.repo_owner}
                   repoName={selectedRepoData.repo_name}
+                  projectId={projectId}
                 />
               )}
             </div>

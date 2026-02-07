@@ -91,6 +91,7 @@ export default function GithubRepos({ projectId }: GithubReposProps) {
                 <GitHubActionsStatus
                   repoOwner={selectedRepoData.repo_owner}
                   repoName={selectedRepoData.repo_name}
+                  projectId={projectId}
                 />
               )}
             </CardContent>

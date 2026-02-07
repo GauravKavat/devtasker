@@ -1,16 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@/lib/supabase/server";
+import { ensureUser, hasPermission } from "@/lib/rbac";
 
 export async function GET(request: NextRequest) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const repoOwner = searchParams.get("repoOwner");
     const repoName = searchParams.get("repoName");
+    const projectId = searchParams.get("projectId");
 
-    if (!repoOwner || !repoName) {
+    if (!repoOwner || !repoName || !projectId) {
       return NextResponse.json(
-        { error: "Repository owner and name are required" },
+        { error: "Project ID, repository owner, and name are required" },
         { status: 400 }
       );
+    }
+
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    }
+
+    const canAccess = await hasPermission(
+      supabase as any,
+      projectId,
+      (dbUser as any).id,
+      "github.connect",
+    );
+
+    if (!canAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { data: repoLink } = await supabase
+      .from("project_repos")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("repo_owner", repoOwner)
+      .eq("repo_name", repoName)
+      .maybeSingle();
+
+    if (!repoLink) {
+      return NextResponse.json({ error: "Repository not linked" }, { status: 403 });
     }
 
     const headers: HeadersInit = {
