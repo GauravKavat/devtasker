@@ -124,7 +124,7 @@ export default function InvitePage() {
         <CardHeader>
           <CardTitle>Project Invitation</CardTitle>
           <CardDescription>
-            You've been invited to join a project
+            You&apos;ve been invited to join a project
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -179,3 +179,4 @@ export default function InvitePage() {
     </div>
   );
 }
+

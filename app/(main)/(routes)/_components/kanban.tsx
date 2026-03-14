@@ -91,8 +91,24 @@ export default function Kanban({ projectId }: KanbanProps) {
   }));
 
   useEffect(() => {
-    setOrderedColumns(kanbanColumns);
-  }, [dbColumns]);
+    setOrderedColumns((previous) => {
+      if (
+        previous.length === kanbanColumns.length &&
+        previous.every((column, index) => {
+          const nextColumn = kanbanColumns[index];
+          return (
+            column.id === nextColumn.id &&
+            column.name === nextColumn.name &&
+            column.color === nextColumn.color
+          );
+        })
+      ) {
+        return previous;
+      }
+
+      return kanbanColumns;
+    });
+  }, [kanbanColumns]);
 
   const handleCreateColumn = async () => {
     if (!projectId || !newColumnName.trim()) return;
@@ -546,3 +562,4 @@ export default function Kanban({ projectId }: KanbanProps) {
     </>
   );
 }
+

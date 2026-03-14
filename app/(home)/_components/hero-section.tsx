@@ -59,7 +59,7 @@ export default function HeroSection() {
           <p className="text-base text-muted-foreground sm:text-lg">
             Keep tasks, timelines, and GitHub activity in one place. DevTasker
             unifies Kanban, roles, and project insights so your team always
-            knows what's next.
+            knows what&apos;s next.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             {isLoaded && isSignedIn ? (
@@ -148,3 +148,4 @@ export default function HeroSection() {
     </main>
   );
 }
+

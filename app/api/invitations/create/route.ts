@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { getSupabaseClient } from "@/lib/supabase/client-singleton";
+import { createClient } from "@/lib/supabase/server";
 import { sendInvitationEmail } from "@/lib/email/send-invitation";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_ROLES } from "@/lib/roles";
@@ -8,11 +8,7 @@ import { ensureUser, hasPermission } from "@/lib/rbac";
 
 const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
 
-async function isRoleValid(
-  projectId: string,
-  role: string,
-  supabase = getSupabaseClient(),
-) {
+async function isRoleValid(projectId: string, role: string, supabase: Awaited<ReturnType<typeof createClient>>) {
   if (!role) return false;
   if (SYSTEM_ROLE_IDS.has(role)) return true;
 
@@ -45,7 +41,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
@@ -78,7 +74,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get project details
     const { data: project } = await supabase
       .from("projects")
       .select("name")
@@ -89,7 +84,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Check if invitation already exists and not used
     const { data: existingInvitation } = await supabase
       .from("project_invitations")
       .select("*")
@@ -105,12 +99,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique token
     const token = uuidv4();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Create invitation
     const { data: invitation, error: invitationError } = await supabase
       .from("project_invitations")
       .insert({
@@ -132,7 +124,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send invitation email via Gmail SMTP
     try {
       const inviterName =
         user.firstName && user.lastName
@@ -147,7 +138,6 @@ export async function POST(request: NextRequest) {
       });
     } catch (emailError) {
       console.error("Failed to send invitation email:", emailError);
-      // Delete the invitation if email fails
       await supabase
         .from("project_invitations")
         .delete()

@@ -1,38 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getSupabaseClient } from "@/lib/supabase/client-singleton";
+import { createClient } from "@/lib/supabase/server";
 import { ALL_PERMISSIONS, DEFAULT_ROLES } from "@/lib/roles";
+import { ensureUser } from "@/lib/rbac";
 
 const SYSTEM_ROLE_IDS = new Set(DEFAULT_ROLES.map((role) => role.id));
 const DEFAULT_ROLE_MAP = new Map(
   DEFAULT_ROLES.map((role) => [role.id, role.permissions]),
 );
 
-async function ensureUser(clerkUserId: string) {
-  const supabase = getSupabaseClient();
-
-  let { data: dbUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
-
-  if (!dbUser) {
-    const { data: newUser } = await supabase
-      .from("users")
-      .insert({ clerk_user_id: clerkUserId } as any)
-      .select("id")
-      .single();
-    dbUser = newUser;
-  }
-
-  return dbUser;
-}
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 async function getMemberRole(
   projectId: string,
   userId: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   const { data } = await supabase
     .from("project_members")
@@ -47,7 +29,7 @@ async function getMemberRole(
 async function getRolePermissions(
   projectId: string,
   role: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   if (DEFAULT_ROLE_MAP.has(role)) {
     return DEFAULT_ROLE_MAP.get(role) || [];
@@ -66,7 +48,7 @@ async function getRolePermissions(
 async function canManageRoles(
   projectId: string,
   userId: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   const role = await getMemberRole(projectId, userId, supabase);
 
@@ -103,7 +85,7 @@ function normalizeRoleName(value: string) {
 async function isRoleNameTaken(
   projectId: string,
   name: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   const lower = name.toLowerCase();
   if ([...SYSTEM_ROLE_IDS].some((role) => role.toLowerCase() === lower)) {
@@ -140,8 +122,8 @@ export async function GET(
       );
     }
 
-    const supabase = getSupabaseClient();
-    const dbUser = await ensureUser(userId);
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -234,8 +216,8 @@ export async function POST(
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
-    const dbUser = await ensureUser(userId);
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -330,8 +312,8 @@ export async function PATCH(
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
-    const dbUser = await ensureUser(userId);
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -343,8 +325,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: role, error } = await (supabase
-      .from("project_roles") as any)
+    const { data: role, error } = await (supabase.from("project_roles") as any)
       .update({ permissions: validation.permissions || [] })
       .eq("project_id", projectId)
       .eq("name", roleId)
@@ -409,8 +390,8 @@ export async function DELETE(
       );
     }
 
-    const supabase = getSupabaseClient();
-    const dbUser = await ensureUser(userId);
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json({ error: "Failed to get user" }, { status: 500 });

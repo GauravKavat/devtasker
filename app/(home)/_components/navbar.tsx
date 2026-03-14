@@ -7,6 +7,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 export const Navbar = () => {
@@ -25,7 +26,7 @@ export const Navbar = () => {
   return (
     <nav className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <a href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Image
             src="/devtasker.svg"
             alt="DevTasker Logo"
@@ -36,7 +37,7 @@ export const Navbar = () => {
           <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">
             DevTasker
           </span>
-        </a>
+        </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex md:order-2 gap-4 items-center">

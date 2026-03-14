@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getSupabaseClient } from "@/lib/supabase/client-singleton";
+import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_ROLES } from "@/lib/roles";
 import { ensureUser, hasPermission } from "@/lib/rbac";
 
@@ -9,10 +9,12 @@ const DEFAULT_ROLE_MAP = new Map(
   DEFAULT_ROLES.map((role) => [role.id, role.permissions]),
 );
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
 async function getMemberRole(
   projectId: string,
   userId: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   const { data } = await supabase
     .from("project_members")
@@ -27,7 +29,7 @@ async function getMemberRole(
 async function getRolePermissions(
   projectId: string,
   role: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   if (DEFAULT_ROLE_MAP.has(role)) {
     return DEFAULT_ROLE_MAP.get(role) || [];
@@ -46,7 +48,7 @@ async function getRolePermissions(
 async function canManageRoles(
   projectId: string,
   userId: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   const role = await getMemberRole(projectId, userId, supabase);
 
@@ -60,7 +62,7 @@ async function canManageRoles(
 async function isRoleValid(
   projectId: string,
   role: string,
-  supabase = getSupabaseClient(),
+  supabase: SupabaseClient,
 ) {
   if (!role) return false;
   if (SYSTEM_ROLE_IDS.has(role)) return true;
@@ -77,7 +79,7 @@ async function isRoleValid(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -91,12 +93,11 @@ export async function GET(
     if (!projectId) {
       return NextResponse.json(
         { error: "projectId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const supabase = getSupabaseClient();
-
+    const supabase = await createClient();
     const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
@@ -114,9 +115,6 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // First, try to fetch members
-    console.log("Fetching members for project:", projectId);
-    
     const { data: members, error: membersError } = await supabase
       .from("project_members")
       .select("*")
@@ -124,23 +122,16 @@ export async function GET(
       .order("joined_at", { ascending: true });
 
     if (membersError) {
-      console.error("Error fetching members:", membersError);
       return NextResponse.json(
         { error: "Failed to fetch members", details: membersError.message },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    console.log("Found members:", members?.length || 0, members);
-
-    // Fetch user details from Clerk for each member
     const { clerkClient } = await import("@clerk/nextjs/server");
     const client = await clerkClient();
+    const userIds = members?.map((member: any) => member.user_id) || [];
 
-    // Get user_ids and fetch their details from users table
-    const userIds = members?.map((m: any) => m.user_id) || [];
-    console.log("Fetching users for user_ids:", userIds);
-    
     const { data: users, error: usersError } = await supabase
       .from("users")
       .select("*")
@@ -148,44 +139,36 @@ export async function GET(
 
     if (usersError) {
       console.error("Error fetching users:", usersError);
-    } else {
-      console.log("Found users:", users?.length || 0, users);
     }
 
-    // Enrich members with Clerk user data
-    console.log("Enriching members with Clerk data...");
-    
     const enrichedMembers = await Promise.all(
       (members || []).map(async (member: any) => {
-        const dbUser = users?.find((u: any) => u.id === member.user_id);
-        console.log(`Member ${member.id}: Found dbUser:`, (dbUser as any)?.clerk_user_id);
-        
+        const memberUser = users?.find((user: any) => user.id === member.user_id);
         let clerkUser = null;
 
-        if ((dbUser as any)?.clerk_user_id) {
+        if ((memberUser as any)?.clerk_user_id) {
           try {
-            clerkUser = await client.users.getUser((dbUser as any).clerk_user_id);
-            console.log(`Clerk user fetched for ${(dbUser as any).clerk_user_id}:`, clerkUser.firstName, clerkUser.lastName);
-          } catch (err) {
-            console.error(`Failed to fetch Clerk user for ${(dbUser as any).clerk_user_id}:`, err);
+            clerkUser = await client.users.getUser((memberUser as any).clerk_user_id);
+          } catch (error) {
+            console.error("Failed to fetch Clerk user for project member:", error);
           }
         }
 
         return {
           ...member,
-          user: dbUser,
-          clerk_user: clerkUser ? {
-            id: clerkUser.id,
-            firstName: clerkUser.firstName,
-            lastName: clerkUser.lastName,
-            email: clerkUser.emailAddresses[0]?.emailAddress,
-            imageUrl: clerkUser.imageUrl,
-          } : null,
+          user: memberUser,
+          clerk_user: clerkUser
+            ? {
+                id: clerkUser.id,
+                firstName: clerkUser.firstName,
+                lastName: clerkUser.lastName,
+                email: clerkUser.emailAddresses[0]?.emailAddress,
+                imageUrl: clerkUser.imageUrl,
+              }
+            : null,
         };
-      })
+      }),
     );
-
-    console.log("Final enriched members count:", enrichedMembers.length);
 
     return NextResponse.json({
       success: true,
@@ -196,14 +179,14 @@ export async function GET(
     console.error("Error fetching project members:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -217,7 +200,7 @@ export async function PATCH(
     if (!projectId) {
       return NextResponse.json(
         { error: "projectId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -227,22 +210,17 @@ export async function PATCH(
     if (!memberId || !role) {
       return NextResponse.json(
         { error: "memberId and role are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const supabase = getSupabaseClient();
-
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("id")
-      .eq("clerk_user_id", userId)
-      .single();
+    const supabase = await createClient();
+    const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
       return NextResponse.json(
         { error: "Failed to get user" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -257,7 +235,7 @@ export async function PATCH(
     if (!validRole) {
       return NextResponse.json(
         { error: "Invalid role" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -270,7 +248,7 @@ export async function PATCH(
     if (error) {
       return NextResponse.json(
         { error: "Failed to update member role" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -279,14 +257,14 @@ export async function PATCH(
     console.error("Error updating member role:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -300,11 +278,11 @@ export async function DELETE(
     if (!projectId) {
       return NextResponse.json(
         { error: "projectId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
     const dbUser = await ensureUser(supabase as any, userId);
 
     if (!dbUser) {
@@ -328,7 +306,7 @@ export async function DELETE(
     if (!memberId) {
       return NextResponse.json(
         { error: "memberId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -341,7 +319,7 @@ export async function DELETE(
     if (error) {
       return NextResponse.json(
         { error: "Failed to remove member" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -350,7 +328,7 @@ export async function DELETE(
     console.error("Error removing project member:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
